@@ -18,14 +18,14 @@ from xgboost import XGBRegressor
 
 import tensorflow as tf
 from keras import Sequential
-# from keras.layers import Dense
+from keras.layers import Dense
 import pickle
 
 
 # from sklearn.metrics import r2_score, mean_squared_error
 
-# sys.path.append(r'L:\HSI_Root_Rot\Method\funs')
-# from calculate_metrics import nan_stat_eva_model  
+sys.path.append(r'L:\HSI_Root_Rot\Method\funs')
+from calculate_metrics import nan_stat_eva_model  
 
 # Read the hyperspectral data
 file_path = 'L:/HSI_Root_Rot/Data/HSI Spectra RootRot_MAIN.xlsx'
