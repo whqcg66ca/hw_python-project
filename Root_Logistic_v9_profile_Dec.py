@@ -17,19 +17,18 @@ from sklearn.linear_model import LogisticRegression
 from xgboost import XGBRegressor
 
 import tensorflow as tf
-from keras.layers import Dense
 from keras import Sequential
-
+# from keras.layers import Dense
 import pickle
 
 
 # from sklearn.metrics import r2_score, mean_squared_error
 
-sys.path.append(r'D:\HSI_Root_Rot\Method\funs')
-from calculate_metrics import nan_stat_eva_model  
+# sys.path.append(r'L:\HSI_Root_Rot\Method\funs')
+# from calculate_metrics import nan_stat_eva_model  
 
 # Read the hyperspectral data
-file_path = 'D:/HSI_Root_Rot/Data/HSI Spectra RootRot_MAIN.xlsx'
+file_path = 'L:/HSI_Root_Rot/Data/HSI Spectra RootRot_MAIN.xlsx'
 arr_2024_shoot = pd.read_excel(file_path, sheet_name='ARR_2024_Shoot').values
 
 waveleth = arr_2024_shoot[:, 0]
@@ -111,7 +110,7 @@ plt.ylabel('Reflectance (Root/Shoot)')
 plt.show()
 
 # Read ground truth data
-arr_truth = pd.read_excel('D:/HSI_Root_Rot/Data/Truth3.xlsx', sheet_name='ARR').values
+arr_truth = pd.read_excel('L:/HSI_Root_Rot/Data/Truth3.xlsx', sheet_name='ARR').values
 xx_shoot = np.concatenate([arr_shoot_cont.T, arr_shoot_rep1.T, arr_shoot_rep2.T])
 xx_root = np.concatenate([arr_root_cont.T, arr_root_rep1.T, arr_root_rep2.T])
 yy = arr_truth[:, 6]
