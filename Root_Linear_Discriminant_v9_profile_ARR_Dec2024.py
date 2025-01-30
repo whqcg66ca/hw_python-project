@@ -13,6 +13,7 @@ from sklearn.tree import DecisionTreeRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis  
 from sklearn.model_selection import train_test_split
 
 from xgboost import XGBRegressor
@@ -138,8 +139,8 @@ plt.ylim([0, 8])
 plt.show()
 
 # Save the model to a file
-with open(r'L:\HSI_Root_Rot\Method\linear_discriminant.pkl', 'wb') as f:
-    pickle.dump(best_lda, f)
+# with open(r'L:\HSI_Root_Rot\Method\linear_discriminant.pkl', 'wb') as f:
+#     pickle.dump(best_lda, f)
     
 
 #%% Load and use the models
