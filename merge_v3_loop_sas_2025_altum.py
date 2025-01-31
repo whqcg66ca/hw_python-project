@@ -53,8 +53,8 @@ for datapath in Teget:
        
     ind=searchpath.find(targ)
   
-    add2= searchpath[ind-17:ind+5] # 23BH  23NL
-    datapath2=r'N:\UAV Data_Lethbridge Projects 2024\Saskatoon UAV Data 2024 (Steve)_Processed\Mosaics'
+    add2= searchpath[ind-13:ind+10] # 23BH  23NL
+    datapath2=r'N:\UAV Data_Lethbridge Projects 2024\Saskatoon UAV Data 2024 (Steve)_Processed\Mosaics_re2'
     # datapath2=r'G:\Lacombe UAV Data_WGRF 2022 (Kelly)_processed'
     savepath=datapath2 +  r'\\' +  add2 + r'.tif'
     
