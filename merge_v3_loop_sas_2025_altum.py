@@ -29,17 +29,17 @@ from osgeo import gdal
 # import geopandas as gpd
 #import sys
 
-targ='oats'  
+targ='lentil'  
  # 'leth_mustard', 'leth_oat'
 
-Teget1=glob.glob(r'N:/UAV Data_Lethbridge Projects 2024/Saskatoon UAV Data 2024 (Steve)_Processed/Oat 2024/'+ r'*'+targ+ r'*'+ r'/4_index/reflectance', recursive = True)
+Teget1=glob.glob(r'N:/UAV Data_Lethbridge Projects 2024/Saskatoon UAV Data 2024 (Steve)_Processed/Pix4d/Lentil 2024/'+ r'*'+targ+ r'*'+ r'/4_index/reflectance', recursive = True)
 
 # Teget1=glob.glob(r'N:\UAV Data_Lethbridge Projects 2023\Saskatoon UAV Data 2023 (Steve)_Processed\Pix4D\Brown HyperOat 20230610_P\Oat20230610\4_index\reflectance', recursive = True)
 #%% Read the bands in a folder
 # file_list= glob.glob(r'C:\Users\Hongquan\Python_test\Test50_June 30\Reflectance30062022\4_index\reflectance\*.tif') 
 
-Teget=[Teget1[i] for i in [0,1,3,4,6]]
-# Teget=Teget1 
+# Teget=[Teget1[i] for i in [0,1,3,4,6]]
+Teget=Teget1 
 
 for datapath in Teget:
     print(datapath)
@@ -58,10 +58,8 @@ for datapath in Teget:
     # datapath2=r'G:\Lacombe UAV Data_WGRF 2022 (Kelly)_processed'
     savepath=datapath2 +  r'\\' +  add2 + r'.tif'
     
-    file_list1= glob.glob(searchpath)
-    # order=[0,1,4,3,2] # for lacombe, and saskatoon
-    # order=[3,0,1,5,4,2] # for lethbridge
-    order=[5,4,2,1,6,0,3] # for saskatoon altum 2024
+    file_list1= sorted(glob.glob(searchpath))
+    order=[4,0,1,6,5,3,2] # for saskatoon altum 2024
     file_list=[file_list1[i] for i in order]
     
     toto=gdal.Open(file_list[0])
