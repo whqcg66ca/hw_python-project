@@ -29,17 +29,17 @@ from osgeo import gdal
 # import geopandas as gpd
 #import sys
 
-targ='Test 52'  
+targ='Test50'  
  # 'leth_mustard', 'leth_oat'
 
-# Teget1=glob.glob(r'G:\Lethbridge UAV Data_WGRF 2022 (Keshav)\UAV RedEdge P (MSI)_Processed\Mustard*\Reflectance*\4_index\reflectance', recursive = True)
+Teget1=glob.glob(r'N:\UAV Data_Lethbridge Projects 2024\Lacombe UAV Data 2024 (Kelly)_Processed\Pix4D\Test50+51 7DAT jul 2_24\T5051_7DAT\4_index\reflectance', recursive = True)
 
 
-Teget1=glob.glob(r'N:\UAV Data_Lethbridge Projects 2024\Lacombe UAV Data 2024 (Kelly)_Processed\Pix4D/' + targ+ r'*'+ r'/*T52*/4_index/reflectance', recursive = True)
+# Teget1=glob.glob(r'N:\UAV Data_Lethbridge Projects 2024\Lacombe UAV Data 2024 (Kelly)_Processed\Pix4D/' + targ+ r'*'+ r'/*T52*/4_index/reflectance', recursive = True)
 #%% Read the bands in a folder
 # file_list= glob.glob(r'C:\Users\Hongquan\Python_test\Test50_June 30\Reflectance30062022\4_index\reflectance\*.tif') 
 
-# Teget=[Teget1[i] for i in [0,1,4,5]]
+# Teget=[Teget1[i] for i in [2,3,4,5,6]]
 Teget=Teget1
 
 for datapath in Teget:
@@ -54,7 +54,7 @@ for datapath in Teget:
        
     ind=searchpath.find(targ)
   
-    add2= searchpath[ind:ind+23] # 18/15T50  17T51 18T52
+    add2= searchpath[ind:ind+13] # 18/15T50  17T51 18T52
     datapath2=r'N:\UAV Data_Lethbridge Projects 2024\Lacombe UAV Data 2024 (Kelly)_Processed\Mosaics'
     # datapath2=r'G:\Lacombe UAV Data_WGRF 2022 (Kelly)_processed'
     savepath=datapath2 +  r'\\' +  add2 + r'.tif'
