@@ -29,13 +29,13 @@ from osgeo import gdal
 # import geopandas as gpd
 #import sys
 
-targ='Test 50'  
+targ='Test 52'  
  # 'leth_mustard', 'leth_oat'
 
 # Teget1=glob.glob(r'G:\Lethbridge UAV Data_WGRF 2022 (Keshav)\UAV RedEdge P (MSI)_Processed\Mustard*\Reflectance*\4_index\reflectance', recursive = True)
 
 
-Teget1=glob.glob(r'N:\UAV Data_Lethbridge Projects 2024\Lacombe UAV Data 2024 (Kelly)_Processed\Pix4D/' + targ+ r'*'+ r'/*T5051*/4_index/reflectance', recursive = True)
+Teget1=glob.glob(r'N:\UAV Data_Lethbridge Projects 2024\Lacombe UAV Data 2024 (Kelly)_Processed\Pix4D/' + targ+ r'*'+ r'/*T52*/4_index/reflectance', recursive = True)
 #%% Read the bands in a folder
 # file_list= glob.glob(r'C:\Users\Hongquan\Python_test\Test50_June 30\Reflectance30062022\4_index\reflectance\*.tif') 
 
