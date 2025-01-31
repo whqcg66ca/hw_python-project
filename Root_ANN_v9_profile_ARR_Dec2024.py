@@ -14,6 +14,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score, root_mean_squared_error
 
 from xgboost import XGBRegressor
 
@@ -22,8 +23,8 @@ from keras import Sequential
 from keras.layers import Dense
 import pickle
 
-sys.path.append(r'L:\HSI_Root_Rot\Method\funs')
-from calculate_metrics import nan_stat_eva_model  
+# sys.path.append(r'L:\HSI_Root_Rot\Method\funs')
+# from calculate_metrics import nan_stat_eva_model  
 
 
 # Step 1: Read the Hyperspectral Shoot data in Excel
@@ -109,15 +110,19 @@ y_pred = ann_model.predict(X_test)
 #%% Evaluate the performance of the algorithms
 
 # Evaluate model performance
-R, bias, sd, rmse_s, mae, d, R2 = nan_stat_eva_model(y_pred.flatten(), y_test)
-print(f'R on Test Data: {R[0, 1]:.4f}')
-print(f'RMSE: {rmse_s:.4f}, MAE: {mae:.4f}, R2: {R2:.4f}')
+# R, bias, sd, rmse_s, mae, d, R2 = nan_stat_eva_model(y_pred.flatten(), y_test)
+
+r_squared = r2_score(y_test, y_pred.flatten())
+rmse = root_mean_squared_error(y_test, y_pred.flatten())
+
+print(f'R2 on Test Data: {r_squared:.4f}')
+print(f'RMSE: {rmse:.4f}')
 
 # Plot actual vs predicted
 plt.figure()
 plt.scatter(y_test, y_pred, c='k', marker='o')
-plt.text(6, 1.5, f'R = {R[0,1]:.2f}')
-plt.text(6, 1, f'RMSE = {rmse_s:.2f}')
+plt.text(6, 1.5, f'R2 = {r_squared:.2f}')
+plt.text(6, 1, f'RMSE = {rmse:.2f}')
 plt.xlabel('Visual Rating')
 plt.ylabel('Estimated Root Rot')
 plt.title('Pea Root Rot')
