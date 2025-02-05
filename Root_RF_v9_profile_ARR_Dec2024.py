@@ -10,10 +10,11 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVR  # Import SVM Regressor
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.tree import DecisionTreeRegressor  
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler as xscaler # includes the preprocessing,standardscaler is to prepare the training dataset
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score, root_mean_squared_error
 
 from xgboost import XGBRegressor
 
@@ -22,13 +23,13 @@ from keras import Sequential
 from keras.layers import Dense
 import pickle
 
-sys.path.append(r'L:\HSI_Root_Rot\Method\funs')
-from calculate_metrics import nan_stat_eva_model  
+# sys.path.append(r'L:\HSI_Root_Rot\Method\funs')
+# from calculate_metrics import nan_stat_eva_model  
 
 
-# Step 1: Read the Hyperspectral Shoot data in Excel
-shoot_hsi = 'L:/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
-root_hsi = 'L:/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_root_DecG8.xlsx'
+# %%  Step 1: Read the Hyperspectral Shoot data in Excel
+shoot_hsi = 'G:/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
+root_hsi = 'G:/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_root_DecG8.xlsx'
 
 df_s1 = pd.read_excel(shoot_hsi, sheet_name='ShootR1toR5', header=0).astype(float)
 df_s2 = pd.read_excel(shoot_hsi, sheet_name='ShootR6toR10', header=0).astype(float)
@@ -43,8 +44,8 @@ df_t3 = pd.read_excel(root_hsi, sheet_name='RootR11toR15', header=0).astype(floa
 
 dec_2024_root = np.hstack([df_t1.iloc[:, 1:].values, df_t2.iloc[:, 1:].values, df_t3.iloc[:, 1:].values])
 
-dec_truth = pd.read_excel('L:/HSI_Root_Rot/Data/Truth_December2024.xlsx', sheet_name='Feuil1', header=0)
-labe_shoot = dec_truth.iloc[:, -2].values.astype(float)
+dec_truth = pd.read_excel('G:/HSI_Root_Rot/Data/Truth_December2024_v2.xlsx', sheet_name='Feuil1', header=0)
+labe_shoot = dec_truth.iloc[:, -3].values.astype(float)
 labe_root = dec_truth.iloc[:, -1].values.astype(float)
 
 # Plot Shoot Data
@@ -79,6 +80,10 @@ y = np.delete(y, ind)
 split_ratio = 0.8
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=(1 - split_ratio), random_state=50)
 
+# Feature Scaling for x, rather than y
+sc = xscaler() # replace the standardscaler as sc
+x_train = sc.fit_transform(X_train) # maybe better to change to different varibale name, standardscaler.fit_transform is scale the training dataset
+x_test = sc.transform(X_test) # standardscaler.transform is to scale the test dataset. It is reasonable that both the training and test datasets need to scaled in the same method
 
 
 #%% Test different AI ML algorithms
@@ -87,7 +92,9 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=(1 - split_r
 param_grid = {
     'n_estimators': range(5,100,20),      # Number of trees
     'max_depth': [10, 20, 30],     # Maximum depth of each tree
-    'max_leaf_nodes': [10, 20, 30] # Maximum number of leaf nodes
+    'max_leaf_nodes': [10, 20, 30], # Maximum number of leaf nodes
+    'max_features': ['auto', 'sqrt', 'log2', None],
+    'criterion': ['mse', 'mae']
 }
 
 # Initialize the Random Forest Regressor model
@@ -111,15 +118,19 @@ y_pred = best_rf_model.predict(X_test)
 #%% Evaluate the performance of the algorithms
 
 # Evaluate model performance
-R, bias, sd, rmse_s, mae, d, R2 = nan_stat_eva_model(y_pred.flatten(), y_test)
-print(f'R on Test Data: {R[0, 1]:.4f}')
-print(f'RMSE: {rmse_s:.4f}, MAE: {mae:.4f}, R2: {R2:.4f}')
+r_squared = r2_score(y_test, y_pred.flatten())
+rmse = root_mean_squared_error(y_test, y_pred.flatten())
+cor = np.corrcoef(y_test, y_pred.flatten())
+
+print(f'R2 on Test Data: {r_squared:.4f}')
+print(f'RMSE: {rmse:.4f}')
+
 
 # Plot actual vs predicted
 plt.figure()
 plt.scatter(y_test, y_pred, c='k', marker='o')
-plt.text(6, 1.5, f'R = {R[0,1]:.2f}')
-plt.text(6, 1, f'RMSE = {rmse_s:.2f}')
+plt.text(6, 1.5, 'R^2=' + f'{r_squared:.2f}')
+plt.text(6, 1, f'RMSE = {rmse:.2f}')
 plt.xlabel('Visual Rating')
 plt.ylabel('Estimated Root Rot')
 plt.title('Pea Root Rot')
@@ -128,8 +139,8 @@ plt.ylim([0, 8])
 plt.show()
 
 # Save the model to a file
-with open(r'L:\HSI_Root_Rot\Method\rf_model2.pkl', 'wb') as f:
-    pickle.dump(rf_model, f)
+# with open(r'L:\HSI_Root_Rot\Method\rf_model2.pkl', 'wb') as f:
+#     pickle.dump(rf_model, f)
     
 
 #%% Load and use the models

@@ -114,7 +114,6 @@ y_pred = ann_model.predict(X_test)
 
 r_squared = r2_score(y_test, y_pred.flatten())
 rmse = root_mean_squared_error(y_test, y_pred.flatten())
-
 cor = np.corrcoef(y_test, y_pred.flatten())
 
 print(f'R2 on Test Data: {r_squared:.4f}')
