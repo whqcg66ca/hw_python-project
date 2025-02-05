@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor 
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, GradientBoostingRegressor 
 from sklearn.metrics import accuracy_score, make_scorer
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import SVR  # Import SVM Regressor
@@ -14,7 +14,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score, root_mean_squared_error
+from sklearn.metrics import r2_score, root_mean_squared_error, accuracy_score, classification_report, confusion_matrix
 
 from xgboost import XGBRegressor
 
@@ -23,8 +23,8 @@ from keras import Sequential
 from keras.layers import Dense
 import pickle
 
-# sys.path.append(r'L:\HSI_Root_Rot\Method\funs')
-# from calculate_metrics import nan_stat_eva_model  
+sys.path.append(r'L:\HSI_Root_Rot\Method\funs')
+from calculate_metrics import nan_stat_eva_model  
 
 
 # Step 1: Read the Hyperspectral Shoot data in Excel
@@ -81,50 +81,97 @@ split_ratio = 0.8
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=(1 - split_ratio), random_state=50)
 
 
+#%% Classification
+
+# Define the parameter grid for GridSearchCV
+param_grid = {
+    'n_estimators': range(5, 100, 20),  # Number of trees
+    'max_depth': [10, 20, 30],         # Maximum depth of each tree
+    'max_leaf_nodes': [10, 20, 30]     # Maximum number of leaf nodes
+}
+
+# Initialize the Random Forest Classifier model
+rf_model = RandomForestClassifier(random_state=42)
+
+# Set up the GridSearchCV
+grid_search = GridSearchCV(estimator=rf_model, param_grid=param_grid, 
+                           cv=5, scoring='accuracy', n_jobs=-1, verbose=2)
+
+# Fit the GridSearchCV
+grid_search.fit(X_train, y_train)
+
+# Get the best parameters and model from grid search
+best_params = grid_search.best_params_
+best_rf_model = grid_search.best_estimator_
+
+# Predict using the best model
+y_pred = best_rf_model.predict(X_test)
+
+# Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+print(f'Classification Accuracy: {accuracy:.2f}')
+
+# Display classification report
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
+
+# Display confusion matrix
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+
+
 #%% Test different AI ML algorithms
 
-# Create a Sequential model
-ann_model = Sequential()
+# Define the parameter grid for GridSearchCV
+param_grid = {
+    'n_estimators': range(5,100,20),      # Number of trees
+    'max_depth': [10, 20, 30],     # Maximum depth of each tree
+    'max_leaf_nodes': [10, 20, 30] # Maximum number of leaf nodes
+}
 
-# Add input layer and first hidden layer
-ann_model.add(Dense(units=64, activation='relu', input_shape=(X_train.shape[1],)))
+# Initialize the Random Forest Regressor model
+rf_model = RandomForestRegressor(random_state=42)
 
-# Add second hidden layer
-ann_model.add(Dense(units=32, activation='relu'))
+# Set up the GridSearchCV
+grid_search = GridSearchCV(estimator=rf_model, param_grid=param_grid, 
+                           cv=5, scoring='neg_mean_squared_error', n_jobs=-1, verbose=2)
 
-# Add third hidden layer
-ann_model.add(Dense(units=16, activation='relu'))
+# Fit the GridSearchCV
+grid_search.fit(X_train, y_train)
 
-# Add the output layer (single node for regression)
-ann_model.add(Dense(units=1, activation='linear'))
+# Get the best parameters and model from grid search
+best_params = grid_search.best_params_
+best_rf_model = grid_search.best_estimator_
 
-# Compile the model
-ann_model.compile(optimizer='adam', loss='mean_squared_error')
-
-# Train the model
-history = ann_model.fit(X_train, y_train, epochs=100, batch_size=32, validation_data=(X_test, y_test), verbose=2)
-
-# Predict using the trained ANN model
-y_pred = ann_model.predict(X_test)
-
-#%% Evaluate the performance of the algorithms
-
-# Evaluate model performance
-# R, bias, sd, rmse_s, mae, d, R2 = nan_stat_eva_model(y_pred.flatten(), y_test)
-
-r_squared = r2_score(y_test, y_pred.flatten())
-rmse = root_mean_squared_error(y_test, y_pred.flatten())
-
-cor = np.corrcoef(y_test, y_pred.flatten())
-
-print(f'R2 on Test Data: {r_squared:.4f}')
-print(f'RMSE: {rmse:.4f}')
+# Predict using the best model
+y_pred = best_rf_model.predict(X_test)
 
 # Plot actual vs predicted
 plt.figure()
 plt.scatter(y_test, y_pred, c='k', marker='o')
-plt.text(6, 1.5, f'R = {cor[0,1]:.2f}')
-plt.text(6, 1, f'RMSE = {rmse:.2f}')
+plt.text(6, 1.5, f'R = {R[0,1]:.2f}')
+plt.text(6, 1, f'RMSE = {rmse_s:.2f}')
+plt.xlabel('Visual Rating')
+plt.ylabel('Estimated Root Rot')
+plt.title('Pea Root Rot')
+plt.xlim([0, 8])
+plt.ylim([0, 8])
+plt.show()
+
+
+#%% Evaluate the performance of the algorithms
+
+# Evaluate model performance
+R, bias, sd, rmse_s, mae, d, R2 = nan_stat_eva_model(y_pred.flatten(), y_test)
+print(f'R on Test Data: {R[0, 1]:.4f}')
+print(f'RMSE: {rmse_s:.4f}, MAE: {mae:.4f}, R2: {R2:.4f}')
+
+# Plot actual vs predicted
+plt.figure()
+plt.scatter(y_test, y_pred, c='k', marker='o')
+plt.text(6, 1.5, f'R = {R[0,1]:.2f}')
+plt.text(6, 1, f'RMSE = {rmse_s:.2f}')
 plt.xlabel('Visual Rating')
 plt.ylabel('Estimated Root Rot')
 plt.title('Pea Root Rot')
@@ -133,9 +180,9 @@ plt.ylim([0, 8])
 plt.show()
 
 # Save the model to a file
-""" with open(r'L:\HSI_Root_Rot\Method\ann_model3.pkl', 'wb') as f:
-    pickle.dump(ann_model, f)
-     """
+with open(r'L:\HSI_Root_Rot\Method\rf_model2.pkl', 'wb') as f:
+    pickle.dump(rf_model, f)
+    
 
 #%% Load and use the models
 
@@ -161,3 +208,4 @@ plt.title('Pea Root Rot')
 plt.xlim([0, 8])
 plt.ylim([0, 8])
 plt.show()
+
