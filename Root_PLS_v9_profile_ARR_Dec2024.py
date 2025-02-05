@@ -5,7 +5,7 @@ from sklearn.cross_decomposition import PLSRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 
-# Step 1: Read the Hyperspectral Shoot data in Excel
+# %% Step 1: Read the Hyperspectral Shoot data in Excel
 shoot_hsi = 'G:/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
 root_hsi = 'G:/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_root_DecG8.xlsx'
 
@@ -42,83 +42,113 @@ plt.xlabel('Wavelength (nm)')
 plt.ylabel('Reflectance')
 plt.show()
 
-# Step 4: Partial Least Squares (PLS) Regression Model training and validation
-X = dec_2024_Shoot.T
-X = X[:, :-3]  # Remove last three columns
-X_col = X[:, 1]
-ind1 = np.where(np.isnan(X_col))[0]
+#%% Step 2: Prprocessing
+# ###############################################
+# Option 1: Remove invaludate values
+# X = dec_2024_root.T
+# X = X[:, :-3]  # Remove last three columns
+# X_col = X[:, 1]
+# ind1 = np.where(np.isnan(X_col))[0]
+# y = labe_root
+# ind2 = np.where(np.isnan(y))[0]
+# ind = np.sort(np.concatenate([ind1, ind2]))
+
+# X = np.delete(X, ind, axis=0)
+# y = np.delete(y, ind)
+###############################################
+
+###############################################
+# Option 2: Remove invaludate values
+X = dec_2024_root.T
+X = X[:, :-3]
 y = labe_root
-ind2 = np.where(np.isnan(y))[0]
-ind = np.sort(np.concatenate([ind1, ind2]))
 
-X = np.delete(X, ind, axis=0)
-y = np.delete(y, ind)
+# Remove NaN values
+nan_mask = ~np.isnan(X[:, 1]) & ~np.isnan(y)
+X = X[nan_mask]
+y = y[nan_mask]
+###############################################
 
+#################################################
+# Option -1: Split the training and test dateset 
 # Split data into training and testing sets
-split_ratio = 0.8
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=(1 - split_ratio), random_state=50)
+# split_ratio = 0.8
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=(1 - split_ratio), random_state=50)
+###################################################
 
-# Test number of components in PLS
+##################################################
+# Option -2:  Split the training and test dateset
+# Set random seed for reproducibility
+np.random.seed(50)
+# Split data into training and testing sets
+splitRatio = 0.8
+splitIdx = np.random.permutation(len(X))
+trainIdx = splitIdx[:int(splitRatio * len(X))]
+testIdx = splitIdx[int(splitRatio * len(X)):] 
+X_train, X_test = X[trainIdx], X[testIdx]
+y_train, y_test = y[trainIdx], y[testIdx]
+###############################################
+
+# %% Step 3: Regression models 
+# Test Number of latent variables
 rmse = []
-num_components = range(1, 41)
-for Ncom in num_components:
+for Ncom in range(1, 41):
     pls = PLSRegression(n_components=Ncom)
     pls.fit(X_train, y_train)
     y_pred = pls.predict(X_test)
     rmse.append(np.sqrt(mean_squared_error(y_test, y_pred)))
-    print(f'Mean Squared Error on Test Data (N={Ncom}): {rmse[-1]}')
+    print(f'Mean Squared Error on Test Data for {Ncom} components: {rmse[-1]}')
 
-# Plot RMSE vs. Number of Components
+# Plot RMSE vs. number of components
 plt.figure()
-plt.plot(num_components, rmse, 'ok')
-plt.xlabel('Number of Components in PLSR')
+plt.plot(range(1, 41), rmse, 'ok')
+plt.xlabel('Number of components in PLSR')
 plt.ylabel('RMSE')
 plt.title('Selection of Components')
 plt.show()
 
-# Find optimal number of components
-optimal_ncom = num_components[np.argmin(rmse)]
+# Select optimal number of components
+num_com = np.argmin(rmse) + 1
 
-# Train final PLS model
-pls_final = PLSRegression(n_components=optimal_ncom)
-pls_final.fit(X_train, y_train)
-y_pred_final = pls_final.predict(X_test)
+# Train final model
+pls = PLSRegression(n_components=num_com)
+pls.fit(X_train, y_train)
+y_pred = pls.predict(X_test)
 
 # Evaluate model
-r2 = r2_score(y_test, y_pred_final)
-rmse_final = np.sqrt(mean_squared_error(y_test, y_pred_final))
+r2 = r2_score(y_test, y_pred)
+rmse_s = np.sqrt(mean_squared_error(y_test, y_pred))
 print(f'R^2 on Test Data: {r2}')
-print(f'RMSE on Test Data: {rmse_final}')
 
-# Scatter plot of actual vs predicted
+# Plot actual vs. predicted values
 plt.figure()
-plt.scatter(y_test, y_pred_final, marker='o', color='k')
+plt.scatter(y_test, y_pred, c='k', marker='o')
+plt.text(4, 2.5, f'R^2={r2:.2f}')
+plt.text(4, 2, f'RMSE={rmse_s:.2f}')
 plt.xlabel('Visual Rating')
 plt.ylabel('Estimated Root Rot')
 plt.title('Pea Root Rot')
 plt.xlim([0, 7])
 plt.ylim([0, 7])
-plt.text(2.7, 4, f'R²={r2:.2f}')
-plt.text(2.7, 3, f'RMSE={rmse_final:.2f}')
 plt.show()
 
-# Calculate VIP scores
-W0 = pls_final.x_weights_ / np.sqrt(np.sum(pls_final.x_weights_**2, axis=0))
-p = X_train.shape[1]
-sum_sq = np.sum(pls_final.x_scores_**2, axis=0) * np.sum(pls_final.y_loadings_**2, axis=0)
-vip_score = np.sqrt(p * np.sum(sum_sq * (W0**2), axis=1) / np.sum(sum_sq))
+# Calculate Variable Importance in Projection (VIP)
+W0 = pls.x_weights_ / np.sqrt(np.sum(pls.x_weights_ ** 2, axis=0))
+p = X.shape[1]
+sumSq = np.sum(pls.x_scores_ ** 2, axis=0) * np.sum(pls.y_loadings_ ** 2, axis=0)
+vipScore = np.sqrt(p * np.sum(sumSq * (W0 ** 2), axis=1) / np.sum(sumSq))
 
-# Plot VIP scores
 plt.figure()
-plt.scatter(waveleth[:-3], vip_score, marker='x', color='k')
-plt.axvline(x=400, color='b', linestyle='-')
-plt.axvline(x=500, color='g', linestyle='-')
-plt.axvline(x=600, color='r', linestyle='-')
-plt.axvline(x=680, color='k', linestyle='-')
-plt.axvline(x=750, color='m', linestyle='-')
-plt.axvline(x=970, color='y', linestyle='-')
+plt.scatter(waveleth[:-3], vipScore, c='k', marker='x')
+mx = 4.5
+plt.axvline(x=400, color='b')
+plt.axvline(x=500, color='g')
+plt.axvline(x=600, color='r')
+plt.axvline(x=680, color='k')
+plt.axvline(x=750, color='m')
+plt.axvline(x=970, color='y')
 plt.xlabel('Wavelength (nm)')
-plt.ylabel('Importance of Wavelength')
-plt.ylim([0, 4.5])
+plt.ylabel('Importance of wavelength')
+plt.ylim([0, mx])
 plt.xlim([300, 1100])
 plt.show()
