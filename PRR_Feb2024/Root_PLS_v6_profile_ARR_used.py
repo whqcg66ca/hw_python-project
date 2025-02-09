@@ -18,62 +18,108 @@ from sklearn.metrics import r2_score, mean_squared_error
 #     return R, bias, sd, rmse, mae, d, R2
 
 #%% Step 1: Read the hyperspectral data
-file_path = 'L:/HSI_Root_Rot/Data/HSI Spectra RootRot_MAIN.xlsx'
-arr_2024_shoot = pd.read_excel(file_path, sheet_name='ARR_2024_Shoot').values
+# Define file paths
+path_hsi = r'L:\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
+path_truth = r'L:\HSI_Root_Rot\Data\Truth3.xlsx'
 
-waveleth = arr_2024_shoot[:, 0]
-arr_shoot_cont = arr_2024_shoot[:, 1:17]
-arr_shoot_rep1 = arr_2024_shoot[:, 17:17+16]
-arr_shoot_rep2 = arr_2024_shoot[:, 17+16:17+16+16]
+# Read shoot hyperspectral data
+ARR_2024_Shoot = pd.read_excel(path_hsi, sheet_name='ARR_2024_Shoot', header=0)
+waveleth = ARR_2024_Shoot.iloc[:, 0]  # First column
+ARR_Shoot_Cont = ARR_2024_Shoot.iloc[:, 1:17]  # Columns 2 to 17
+ARR_Shoot_Rep1 = ARR_2024_Shoot.iloc[:, 17:17+16]  # Columns 18 to 33
+ARR_Shoot_Rep2 = ARR_2024_Shoot.iloc[:, 17+16:17+16+16]  # Columns 34 to 49
 
-# Plot Reflectance for Shoot
+# Read root hyperspectral data
+ARR_2024_Root = pd.read_excel(path_hsi, sheet_name='ARR_2024_Root', header=0)
+ARR_Root_Cont = ARR_2024_Root.iloc[:, 1:17]  # Columns 2 to 17
+ARR_Root_Rep1 = ARR_2024_Root.iloc[:, 17:17+16]  # Columns 18 to 33
+ARR_Root_Rep2 = ARR_2024_Root.iloc[:, 17+16:17+16+16]  # Columns 34 to 49
 
+# Read truth labels
+# ARR_truth_txt = pd.read_excel(path_truth, sheet_name='ARR', header=None)
+# labe_cont = ARR_truth_txt.iloc[0:16, 1].astype(str).tolist()
+# labe_rep1 = ARR_truth_txt.iloc[16:32, 1].astype(str).tolist()
+# labe_rep2 = ARR_truth_txt.iloc[32:, 1].astype(str).tolist()
+
+# Plot shoot data
 plt.figure()
-for i in range(15):
-    plt.plot(waveleth, arr_shoot_cont[:, i])
+for i in range(16):
+    plt.plot(waveleth, ARR_Shoot_Cont.iloc[:, i])
+# plt.legend(labe_cont)
 plt.xlabel('Wavelength (nm)')
 plt.ylabel('Reflectance')
-plt.legend()
 plt.show()
 
-# Read root data
-arr_2024_root = pd.read_excel(file_path, sheet_name='ARR_2024_Root').values
-arr_root_cont = arr_2024_root[:, 1:17]
-arr_root_rep1 = arr_2024_root[:, 17:17+16]
-arr_root_rep2 = arr_2024_root[:, 17+16:17+16+16]
+# plt.figure()
+# for i in range(16):
+#     plt.plot(waveleth, ARR_Shoot_Rep1.iloc[:, i])
+# # plt.legend(labe_rep1)
+# plt.xlabel('Wavelength (nm)')
+# plt.ylabel('Reflectance')
+# plt.show()
 
+# plt.figure()
+# plt.plot(waveleth, ARR_Shoot_Rep2.iloc[:, 0], '-k', 
+#          waveleth, ARR_Shoot_Rep2.iloc[:, 1], '-r', 
+#          waveleth, ARR_Shoot_Rep2.iloc[:, 2], '-b')
+# plt.xlabel('Wavelength (nm)')
+# plt.ylabel('Reflectance')
+# plt.show()
 
-# Plot Reflectance for Root Cont
+# Plot root data
 plt.figure()
-plt.plot(waveleth, arr_root_cont[:, 0], '-k', label='Cont 1')
-plt.plot(waveleth, arr_root_cont[:, 1], '-r', label='Cont 2')
-plt.plot(waveleth, arr_root_cont[:, 2], '-b', label='Cont 3')
+for i in range(16):
+    plt.plot(waveleth, ARR_Root_Cont.iloc[:, i])
+# plt.legend(labe_cont)
 plt.xlabel('Wavelength (nm)')
 plt.ylabel('Reflectance')
-plt.legend()
 plt.show()
 
-# Root/Shoot Reflectance ratio
-rr = arr_2024_root[:, 1:]
-ss = arr_2024_shoot[:, 1:]
-plt.figure()
-plt.plot(waveleth, np.nanmean(rr/ss, axis=1), '-k')
-plt.xlabel('Wavelength (nm)')
-plt.ylabel('Reflectance (Root/Shoot)')
-plt.show()
+# plt.figure()
+# for i in range(16):
+#     plt.plot(waveleth, ARR_Root_Rep1.iloc[:, i])
+# # plt.legend(labe_rep1)
+# plt.xlabel('Wavelength (nm)')
+# plt.ylabel('Reflectance')
+# plt.show()
+
+# plt.figure()
+# plt.plot(waveleth, ARR_Root_Rep2.iloc[:, 0], '-k', 
+#          waveleth, ARR_Root_Rep2.iloc[:, 1], '-r', 
+#          waveleth, ARR_Root_Rep2.iloc[:, 2], '-b')
+# plt.xlabel('Wavelength (nm)')
+# plt.ylabel('Reflectance')
+# plt.show()
+
+# # Root-to-shoot reflectance ratio
+# rr = ARR_2024_Root.iloc[:, 1:].to_numpy()
+# ss = ARR_2024_Shoot.iloc[:, 1:].to_numpy()
+
+# plt.figure()
+# plt.plot(rr, ss, '.k')
+# plt.xlabel('Root Reflectance')
+# plt.ylabel('Shoot Reflectance')
+# plt.show()
+
+# plt.figure()
+# plt.plot(waveleth, np.nanmean(rr / ss, axis=1), '-k')
+# plt.xlabel('Wavelength (nm)')
+# plt.ylabel('Reflectance (Root/Shoot)')
+# plt.show()
 
 # Read ground truth data
-arr_truth = pd.read_excel('L:/HSI_Root_Rot/Data/Truth3.xlsx', sheet_name='ARR').values
-xx_shoot = np.concatenate([arr_shoot_cont.T, arr_shoot_rep1.T, arr_shoot_rep2.T])
-xx_root = np.concatenate([arr_root_cont.T, arr_root_rep1.T, arr_root_rep2.T])
-yy = arr_truth[:, 6]
+ARR_truth = pd.read_excel(path_truth, sheet_name='ARR', header=0)
+
+XX_Shoot = np.vstack([ARR_Shoot_Cont.to_numpy().T, ARR_Shoot_Rep1.to_numpy().T, ARR_Shoot_Rep2.to_numpy().T])
+XX_Root = np.vstack([ARR_Root_Cont.to_numpy().T, ARR_Root_Rep1.to_numpy().T, ARR_Root_Rep2.to_numpy().T])
+YY = ARR_truth.iloc[:, 6].to_numpy()
+
 
 #%% Step 2: Preprocessing 
-###############################################
-# Option 2: Remove invaludate values
-X = xx_root
+
+X = XX_Shoot 
 X = X[:, :-3]
-y = yy.astype(float)
+y = YY .astype(float)
 
 # Remove NaN values
 nan_mask = ~np.isnan(X[:, 1]) & ~np.isnan(y)
@@ -93,7 +139,6 @@ testIdx = splitIdx[int(splitRatio * len(X)):]
 X_train, X_test = X[trainIdx], X[testIdx]
 y_train, y_test = y[trainIdx], y[testIdx]
 ###############################################
-
 
 #%% Step 3:  PLS regression model with 30 components
 # Test different numbers of components

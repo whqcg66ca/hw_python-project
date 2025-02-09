@@ -22,64 +22,56 @@ import tensorflow as tf
 from keras import Sequential
 from keras.layers import Dense
 import pickle
-
  
 # %% Step 1: Read the Hyperspectral Shoot data in Excel
-file_path = 'L:/HSI_Root_Rot/Data/HSI Spectra RootRot_MAIN.xlsx'
-arr_2024_shoot = pd.read_excel(file_path, sheet_name='ARR_2024_Shoot').values
+# Define file paths
+path_hsi = r'L:\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
+path_truth = r'L:\HSI_Root_Rot\Data\Truth3.xlsx'
 
-waveleth = arr_2024_shoot[:, 0]
-arr_shoot_cont = arr_2024_shoot[:, 1:17]
-arr_shoot_rep1 = arr_2024_shoot[:, 17:17+16]
-arr_shoot_rep2 = arr_2024_shoot[:, 17+16:17+16+16]
+# Read the Excel file
+FRR_2024_Shoot = pd.read_excel(path_hsi, sheet_name='FRR_2024_Shoot', header=0)
 
-# Plot Reflectance for Shoot
+# Extract data based on column indices
+waveleth = FRR_2024_Shoot.iloc[:, 0]  # First column
+FRR_Shoot_Cont = FRR_2024_Shoot.iloc[:, 1:17]  # Columns 2 to 17 (MATLAB uses 1-based index)
+FRR_Shoot_Rep1 = FRR_2024_Shoot.iloc[:, 17:17+16]  # Columns 18 to 33
+FRR_Shoot_Rep2 = FRR_2024_Shoot.iloc[:, 17+16:17+16+16]  # Columns 34 to 49
 
+# # Read truth labels
+# FRR_truth_txt = pd.read_excel(path_truth, sheet_name='FRR', header=None)
+# labe_cont = FRR_truth_txt.iloc[0:16, 1].astype(str).tolist()
+# labe_rep1 = FRR_truth_txt.iloc[16:32, 1].astype(str).tolist()
+# labe_rep2 = FRR_truth_txt.iloc[32:, 1].astype(str).tolist()
+
+# Plot the first dataset
 plt.figure()
-for i in range(15):
-    plt.plot(waveleth, arr_shoot_cont[:, i])
+for i in range(16):
+    plt.plot(waveleth, FRR_Shoot_Cont.iloc[:, i])
+# plt.legend(labe_cont)
 plt.xlabel('Wavelength (nm)')
 plt.ylabel('Reflectance')
-plt.legend()
 plt.show()
 
-# Read root data
-arr_2024_root = pd.read_excel(file_path, sheet_name='ARR_2024_Root').values
-arr_root_cont = arr_2024_root[:, 1:17]
-arr_root_rep1 = arr_2024_root[:, 17:17+16]
-arr_root_rep2 = arr_2024_root[:, 17+16:17+16+16]
-
-# Plot Reflectance for Root Cont
+# Plot the second dataset
 plt.figure()
-plt.plot(waveleth, arr_root_cont[:, 0], '-k', label='Cont 1')
-plt.plot(waveleth, arr_root_cont[:, 1], '-r', label='Cont 2')
-plt.plot(waveleth, arr_root_cont[:, 2], '-b', label='Cont 3')
+plt.plot(waveleth, FRR_Shoot_Rep2.iloc[:, 0], '-k', 
+         waveleth, FRR_Shoot_Rep2.iloc[:, 1], '-r', 
+         waveleth, FRR_Shoot_Rep2.iloc[:, 2], '-b')
 plt.xlabel('Wavelength (nm)')
 plt.ylabel('Reflectance')
-plt.legend()
 plt.show()
 
-# Root/Shoot Reflectance ratio
-rr = arr_2024_root[:, 1:]
-ss = arr_2024_shoot[:, 1:]
-plt.figure()
-plt.plot(waveleth, np.nanmean(rr/ss, axis=1), '-k')
-plt.xlabel('Wavelength (nm)')
-plt.ylabel('Reflectance (Root/Shoot)')
-plt.show()
-
-# Read ground truth data
-arr_truth = pd.read_excel('L:/HSI_Root_Rot/Data/Truth3.xlsx', sheet_name='ARR').values
-xx_shoot = np.concatenate([arr_shoot_cont.T, arr_shoot_rep1.T, arr_shoot_rep2.T])
-xx_root = np.concatenate([arr_root_cont.T, arr_root_rep1.T, arr_root_rep2.T])
-yy = arr_truth[:, 6]
+# Prepare data
+FRR_truth = pd.read_excel("L:/HSI_Root_Rot/Data/Truth3.xlsx", sheet_name='FRR',header=0).values
+XX_Shoot = np.vstack((FRR_Shoot_Cont.T, FRR_Shoot_Rep1.T, FRR_Shoot_Rep2.T))
+YY = FRR_truth[:, 6]
 
 #%% Step 2:Preprocessing 
 ###############################################
 # Option 2: Remove invaludate values
-X = xx_root
+X = XX_Shoot
 X = X[:, :-3]
-y = yy.astype(float)
+y = YY.astype(float)
 
 # Remove NaN values
 nan_mask = ~np.isnan(X[:, 1]) & ~np.isnan(y)
@@ -100,29 +92,25 @@ X_train, X_test = X[trainIdx], X[testIdx]
 y_train, y_test = y[trainIdx], y[testIdx]
 ###############################################
 
-
 #%% Step 3: Test different AI ML algorithms
-
 
 # Feature Scaling for x, rather than y
 sc = xscaler() # replace the standardscaler as sc
 x_train = sc.fit_transform(X_train) # maybe better to change to different varibale name, standardscaler.fit_transform is scale the training dataset
 x_test = sc.transform(X_test) # standardscaler.transform is to scale the test dataset. It is reasonable that both the training and test datasets need to scaled in the same method
-
-
-# Define the parameter grid for GridSearchCV
+# Define the parameter grid for GridSearchCV for XGBoost
 param_grid = {
-    'n_estimators': range(5,100,20),      # Number of trees
-    'max_depth': [10, 20, 30],     # Maximum depth of each tree
-    'max_leaf_nodes': [10, 20, 30], # Maximum number of leaf nodes
-    'max_features': ['auto', 'sqrt', 'log2', None]
+    'n_estimators': range(50, 200, 50),  # Number of trees
+    'max_depth': [6, 10, 15],           # Maximum depth of each tree
+    'learning_rate': [0.01, 0.1, 0.2],  # Learning rate
+    'subsample': [0.7, 0.8, 1.0]        # Fraction of samples used per tree
 }
 
-# Initialize the Random Forest Regressor model
-rf_model = RandomForestRegressor(random_state=42)
+# Initialize the XGBoost Regressor model
+xgb_model = XGBRegressor(random_state=42)
 
 # Set up the GridSearchCV
-grid_search = GridSearchCV(estimator=rf_model, param_grid=param_grid, 
+grid_search = GridSearchCV(estimator=xgb_model, param_grid=param_grid, 
                            cv=5, scoring='neg_mean_squared_error', n_jobs=-1, verbose=2)
 
 # Fit the GridSearchCV
@@ -130,13 +118,11 @@ grid_search.fit(x_train, y_train)
 
 # Get the best parameters and model from grid search
 best_params = grid_search.best_params_
-best_rf_model = grid_search.best_estimator_
+best_xgb_model = grid_search.best_estimator_
 
 # Predict using the best model
-y_pred = best_rf_model.predict(x_test)
+y_pred = best_xgb_model.predict(x_test)
 
-
-#%% Evaluate the performance of the algorithms
 #%% Step 4: Evaluate the performance of the algorithms
 
 # Evaluate model performance
@@ -160,6 +146,32 @@ plt.xlim([0, 8])
 plt.ylim([0, 8])
 plt.show()
 
-# Save the model to a file
-# with open(r'L:\HSI_Root_Rot\Method\rf_model2.pkl', 'wb') as f:
-#     pickle.dump(rf_model, f)
+# # Save the model to a file
+# with open(r'L:\HSI_Root_Rot\Method\XGBoost_model2.pkl', 'wb') as f:
+#     pickle.dump(xgb_model, f)
+    
+
+# #%% Load and use the models
+
+# # Later, load the model back from the file
+# with open(r'L:\HSI_Root_Rot\Method\ann_model2.pkl', 'rb') as f:
+#     loaded_model = pickle.load(f)
+    
+
+# y_pred = loaded_model.predict(X_test)
+
+# # Evaluate model performance
+# R, bias, sd, rmse_s, mae, d, R2 = nan_stat_eva_model(y_pred, y_test)
+# print(f'R on Test Data: {R[0, 1]:.4f}')
+
+# # Plot actual vs predicted
+# plt.figure()
+# plt.scatter(y_test, y_pred, c='k', marker='o')
+# plt.text(6, 1.5, f'R = {R[0,1]:.2f}')
+# plt.text(6, 1, f'RMSE = {rmse_s:.2f}')
+# plt.xlabel('Visual Rating')
+# plt.ylabel('Estimated Root Rot')
+# plt.title('Pea Root Rot')
+# plt.xlim([0, 8])
+# plt.ylim([0, 8])
+# plt.show()
