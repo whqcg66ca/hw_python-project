@@ -149,12 +149,11 @@ y_train, y_test = y[trainIdx], y[testIdx]
 #%% Step 3: Test different AI ML algorithms
 
 # Standardize the data
-scaler = xscaler()
+scaler = xscaler() # replace the standardscaler as sc
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
 # Custom scoring function based on R2 (same as your existing code)
-# Standardize the data
 def custom_scorer(y_true, y_pred):
     r_squared = r2_score(y_pred.flatten(), y_true)
     return r_squared
@@ -162,33 +161,33 @@ def custom_scorer(y_true, y_pred):
 # Create a custom scorer for GridSearchCV
 scorer = make_scorer(custom_scorer, greater_is_better=True)
 
-# Define the Gradient Boosting Machine (GBM) model
-gbm = GradientBoostingRegressor()
+# Define the Decision Tree model
+dt = DecisionTreeRegressor()
 
 # Define the grid of hyperparameters to search
 param_grid = {
-    'n_estimators': [100, 200, 300],      # Number of boosting stages
-    'learning_rate': [0.01, 0.1, 0.2],   # Learning rate
-    'max_depth': [3, 5, 7],              # Maximum depth of individual estimators
-    'min_samples_split': [2, 10],        # Minimum samples needed to split
-    'min_samples_leaf': [1, 5]           # Minimum samples in a leaf
+    'criterion': ['mse', 'friedman_mse', 'mae'],
+    'splitter': ['best', 'random'],
+    'max_depth': [None, 10, 20, 30],
+    'min_samples_split': [2, 10, 20],
+    'min_samples_leaf': [1, 5, 10]
 }
 
-# Initialize GridSearchCV with GBM
-grid_search = GridSearchCV(estimator=gbm, param_grid=param_grid, scoring=scorer, cv=5, verbose=1, n_jobs=-1)
+# Initialize GridSearchCV with Decision Tree
+grid_search = GridSearchCV(estimator=dt, param_grid=param_grid, scoring=scorer, cv=5, verbose=1, n_jobs=-1)
 
 # Perform the grid search
 grid_search.fit(X_train_scaled, y_train)
 
 # Get the best model and parameters
-best_gbm = grid_search.best_estimator_
+best_dt = grid_search.best_estimator_
 best_params = grid_search.best_params_
 print(f"Best Parameters: {best_params}")
 
 # Predict using the best model
-y_pred = best_gbm.predict(X_test_scaled)
+y_pred = best_dt.predict(X_test_scaled)
 
-#%% Step 4: Evaluate the performance of the algorithms
+#%% Evaluate the performance of the algorithms
 
 # Evaluate model performance
 r_squared = r2_score(y_test, y_pred.flatten())
@@ -210,3 +209,4 @@ plt.title('Pea Root Rot')
 plt.xlim([0, 8])
 plt.ylim([0, 8])
 plt.show()
+

@@ -146,15 +146,14 @@ X_train, X_test = X[trainIdx], X[testIdx]
 y_train, y_test = y[trainIdx], y[testIdx]
 ###############################################
 
-#%% Step 3: Test different AI ML algorithms
+#%% Test different AI ML algorithms
 
-# Standardize the data
-scaler = xscaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+# Feature Scaling for x, rather than y
+sc = xscaler() # replace the standardscaler as sc
+x_train = sc.fit_transform(X_train) # maybe better to change to different varibale name, standardscaler.fit_transform is scale the training dataset
+x_test = sc.transform(X_test) # standardscaler.transform is to scale the test dataset. It is reasonable that both the training and test datasets need to scaled in the same method
 
 # Custom scoring function based on R2 (same as your existing code)
-# Standardize the data
 def custom_scorer(y_true, y_pred):
     r_squared = r2_score(y_pred.flatten(), y_true)
     return r_squared
@@ -162,33 +161,29 @@ def custom_scorer(y_true, y_pred):
 # Create a custom scorer for GridSearchCV
 scorer = make_scorer(custom_scorer, greater_is_better=True)
 
-# Define the Gradient Boosting Machine (GBM) model
-gbm = GradientBoostingRegressor()
+# Define the Naive Bayes model
+nb = GaussianNB()
 
-# Define the grid of hyperparameters to search
+# No hyperparameters to tune for Naive Bayes, but if you want to try setting priors or var_smoothing, you can adjust the grid here.
 param_grid = {
-    'n_estimators': [100, 200, 300],      # Number of boosting stages
-    'learning_rate': [0.01, 0.1, 0.2],   # Learning rate
-    'max_depth': [3, 5, 7],              # Maximum depth of individual estimators
-    'min_samples_split': [2, 10],        # Minimum samples needed to split
-    'min_samples_leaf': [1, 5]           # Minimum samples in a leaf
+    'var_smoothing': np.logspace(-9, 0, 10)  # Example of smoothing values to search through
 }
 
-# Initialize GridSearchCV with GBM
-grid_search = GridSearchCV(estimator=gbm, param_grid=param_grid, scoring=scorer, cv=5, verbose=1, n_jobs=-1)
+# Initialize GridSearchCV with Naive Bayes
+grid_search = GridSearchCV(estimator=nb, param_grid=param_grid, scoring=scorer, cv=5, verbose=1, n_jobs=-1)
 
 # Perform the grid search
-grid_search.fit(X_train_scaled, y_train)
+grid_search.fit(x_train, y_train)
 
 # Get the best model and parameters
-best_gbm = grid_search.best_estimator_
+best_nb = grid_search.best_estimator_
 best_params = grid_search.best_params_
 print(f"Best Parameters: {best_params}")
 
 # Predict using the best model
-y_pred = best_gbm.predict(X_test_scaled)
+y_pred = best_nb.predict(x_test)
 
-#%% Step 4: Evaluate the performance of the algorithms
+#%% Evaluate the performance of the algorithms
 
 # Evaluate model performance
 r_squared = r2_score(y_test, y_pred.flatten())
@@ -204,6 +199,36 @@ plt.figure()
 plt.scatter(y_test, y_pred, c='k', marker='o')
 plt.text(6, 1.5, rf'$R^2 = {r_squared:.2f}$')
 plt.text(6, 1, f'RMSE = {rmse:.2f}')
+plt.xlabel('Visual Rating')
+plt.ylabel('Estimated Root Rot')
+plt.title('Pea Root Rot')
+plt.xlim([0, 8])
+plt.ylim([0, 8])
+plt.show()
+
+# Save the model to a file
+# with open(r'L:\HSI_Root_Rot\Method\gradient_boosting.pkl', 'wb') as f:
+#     pickle.dump(best_gbm, f)
+    
+
+#%% Load and use the models
+
+# Later, load the model back from the file
+with open(r'L:\HSI_Root_Rot\Method\ann_model2.pkl', 'rb') as f:
+    loaded_model = pickle.load(f)
+    
+
+y_pred = loaded_model.predict(X_test)
+
+# Evaluate model performance
+R, bias, sd, rmse_s, mae, d, R2 = nan_stat_eva_model(y_pred, y_test)
+print(f'R on Test Data: {R[0, 1]:.4f}')
+
+# Plot actual vs predicted
+plt.figure()
+plt.scatter(y_test, y_pred, c='k', marker='o')
+plt.text(6, 1.5, f'R = {R[0,1]:.2f}')
+plt.text(6, 1, f'RMSE = {rmse_s:.2f}')
 plt.xlabel('Visual Rating')
 plt.ylabel('Estimated Root Rot')
 plt.title('Pea Root Rot')

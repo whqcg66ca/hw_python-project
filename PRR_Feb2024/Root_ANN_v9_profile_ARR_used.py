@@ -148,45 +148,34 @@ y_train, y_test = y[trainIdx], y[testIdx]
 
 #%% Step 3: Test different AI ML algorithms
 
-# Standardize the data
-scaler = xscaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+# Feature Scaling for x, rather than y
+sc = xscaler() # replace the standardscaler as sc
+x_train = sc.fit_transform(X_train) # maybe better to change to different varibale name, standardscaler.fit_transform is scale the training dataset
+x_test = sc.transform(X_test) # standardscaler.transform is to scale the test dataset. It is reasonable that both the training and test datasets need to scaled in the same method
 
-# Custom scoring function based on R2 (same as your existing code)
-# Standardize the data
-def custom_scorer(y_true, y_pred):
-    r_squared = r2_score(y_pred.flatten(), y_true)
-    return r_squared
+# Create a Sequential model
+ann_model = Sequential()
 
-# Create a custom scorer for GridSearchCV
-scorer = make_scorer(custom_scorer, greater_is_better=True)
+# Add input layer and first hidden layer
+ann_model.add(Dense(units=64, activation='relu', input_shape=(X_train.shape[1],)))
 
-# Define the Gradient Boosting Machine (GBM) model
-gbm = GradientBoostingRegressor()
+# Add second hidden layer
+ann_model.add(Dense(units=32, activation='relu'))
 
-# Define the grid of hyperparameters to search
-param_grid = {
-    'n_estimators': [100, 200, 300],      # Number of boosting stages
-    'learning_rate': [0.01, 0.1, 0.2],   # Learning rate
-    'max_depth': [3, 5, 7],              # Maximum depth of individual estimators
-    'min_samples_split': [2, 10],        # Minimum samples needed to split
-    'min_samples_leaf': [1, 5]           # Minimum samples in a leaf
-}
+# Add third hidden layer
+ann_model.add(Dense(units=16, activation='relu'))
 
-# Initialize GridSearchCV with GBM
-grid_search = GridSearchCV(estimator=gbm, param_grid=param_grid, scoring=scorer, cv=5, verbose=1, n_jobs=-1)
+# Add the output layer (single node for regression)
+ann_model.add(Dense(units=1, activation='linear'))
 
-# Perform the grid search
-grid_search.fit(X_train_scaled, y_train)
+# Compile the model
+ann_model.compile(optimizer='adam', loss='mean_squared_error')
 
-# Get the best model and parameters
-best_gbm = grid_search.best_estimator_
-best_params = grid_search.best_params_
-print(f"Best Parameters: {best_params}")
+# Train the model
+history = ann_model.fit(x_train, y_train, epochs=100, batch_size=32, validation_data=(X_test, y_test), verbose=2)
 
-# Predict using the best model
-y_pred = best_gbm.predict(X_test_scaled)
+# Predict using the trained ANN model
+y_pred = ann_model.predict(x_test)
 
 #%% Step 4: Evaluate the performance of the algorithms
 
@@ -210,3 +199,7 @@ plt.title('Pea Root Rot')
 plt.xlim([0, 8])
 plt.ylim([0, 8])
 plt.show()
+
+# Save the model to a file
+# with open(r'L:\HSI_Root_Rot\Method\rf_model2.pkl', 'wb') as f:
+#     pickle.dump(rf_model, f)

@@ -146,15 +146,14 @@ X_train, X_test = X[trainIdx], X[testIdx]
 y_train, y_test = y[trainIdx], y[testIdx]
 ###############################################
 
-#%% Step 3: Test different AI ML algorithms
+#%% Test different AI ML algorithms
 
 # Standardize the data
 scaler = xscaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-# Custom scoring function based on R2 (same as your existing code)
-# Standardize the data
+# Custom scoring function based on R2 (can be replaced with other metrics)
 def custom_scorer(y_true, y_pred):
     r_squared = r2_score(y_pred.flatten(), y_true)
     return r_squared
@@ -162,31 +161,29 @@ def custom_scorer(y_true, y_pred):
 # Create a custom scorer for GridSearchCV
 scorer = make_scorer(custom_scorer, greater_is_better=True)
 
-# Define the Gradient Boosting Machine (GBM) model
-gbm = GradientBoostingRegressor()
+# Define the k-NN model
+knn = KNeighborsRegressor()
 
 # Define the grid of hyperparameters to search
 param_grid = {
-    'n_estimators': [100, 200, 300],      # Number of boosting stages
-    'learning_rate': [0.01, 0.1, 0.2],   # Learning rate
-    'max_depth': [3, 5, 7],              # Maximum depth of individual estimators
-    'min_samples_split': [2, 10],        # Minimum samples needed to split
-    'min_samples_leaf': [1, 5]           # Minimum samples in a leaf
+    'n_neighbors': [3, 5, 7, 9, 11],
+    'weights': ['uniform', 'distance'],
+    'metric': ['euclidean', 'manhattan', 'minkowski']
 }
 
-# Initialize GridSearchCV with GBM
-grid_search = GridSearchCV(estimator=gbm, param_grid=param_grid, scoring=scorer, cv=5, verbose=1, n_jobs=-1)
+# Initialize GridSearchCV
+grid_search = GridSearchCV(estimator=knn, param_grid=param_grid, scoring=scorer, cv=5, verbose=1, n_jobs=-1)
 
 # Perform the grid search
 grid_search.fit(X_train_scaled, y_train)
 
 # Get the best model and parameters
-best_gbm = grid_search.best_estimator_
+best_knn = grid_search.best_estimator_
 best_params = grid_search.best_params_
 print(f"Best Parameters: {best_params}")
 
 # Predict using the best model
-y_pred = best_gbm.predict(X_test_scaled)
+y_pred = best_knn.predict(X_test_scaled)
 
 #%% Step 4: Evaluate the performance of the algorithms
 

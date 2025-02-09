@@ -15,6 +15,7 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, root_mean_squared_error
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis  # Import LDA
 
 from xgboost import XGBRegressor
 
@@ -146,15 +147,14 @@ X_train, X_test = X[trainIdx], X[testIdx]
 y_train, y_test = y[trainIdx], y[testIdx]
 ###############################################
 
-#%% Step 3: Test different AI ML algorithms
+#%% Test different AI ML algorithms
 
 # Standardize the data
-scaler = xscaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+scaler = xscaler ()
+x_train = scaler.fit_transform(X_train)
+x_test = scaler.transform(X_test)
 
 # Custom scoring function based on R2 (same as your existing code)
-# Standardize the data
 def custom_scorer(y_true, y_pred):
     r_squared = r2_score(y_pred.flatten(), y_true)
     return r_squared
@@ -162,33 +162,30 @@ def custom_scorer(y_true, y_pred):
 # Create a custom scorer for GridSearchCV
 scorer = make_scorer(custom_scorer, greater_is_better=True)
 
-# Define the Gradient Boosting Machine (GBM) model
-gbm = GradientBoostingRegressor()
 
-# Define the grid of hyperparameters to search
+# Define the Linear Discriminant Analysis (LDA) model
+lda = LinearDiscriminantAnalysis()
+
+# Define the grid of hyperparameters to search (LDA does not have many hyperparameters)
 param_grid = {
-    'n_estimators': [100, 200, 300],      # Number of boosting stages
-    'learning_rate': [0.01, 0.1, 0.2],   # Learning rate
-    'max_depth': [3, 5, 7],              # Maximum depth of individual estimators
-    'min_samples_split': [2, 10],        # Minimum samples needed to split
-    'min_samples_leaf': [1, 5]           # Minimum samples in a leaf
+    'solver': ['svd', 'lsqr', 'eigen']  # Solvers for optimization in LDA
 }
 
-# Initialize GridSearchCV with GBM
-grid_search = GridSearchCV(estimator=gbm, param_grid=param_grid, scoring=scorer, cv=5, verbose=1, n_jobs=-1)
+# Initialize GridSearchCV with LDA
+grid_search = GridSearchCV(estimator=lda, param_grid=param_grid, scoring=scorer, cv=5, verbose=1, n_jobs=-1)
 
 # Perform the grid search
-grid_search.fit(X_train_scaled, y_train)
+grid_search.fit(x_train, y_train)
 
 # Get the best model and parameters
-best_gbm = grid_search.best_estimator_
+best_lda = grid_search.best_estimator_
 best_params = grid_search.best_params_
 print(f"Best Parameters: {best_params}")
 
 # Predict using the best model
-y_pred = best_gbm.predict(X_test_scaled)
+y_pred = best_lda.predict(x_test)
 
-#%% Step 4: Evaluate the performance of the algorithms
+#%% Evaluate the performance of the algorithms
 
 # Evaluate model performance
 r_squared = r2_score(y_test, y_pred.flatten())

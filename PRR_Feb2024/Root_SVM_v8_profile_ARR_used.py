@@ -148,45 +148,35 @@ y_train, y_test = y[trainIdx], y[testIdx]
 
 #%% Step 3: Test different AI ML algorithms
 
-# Standardize the data
-scaler = xscaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+# Feature Scaling for x, rather than y
+sc = xscaler() # replace the standardscaler as sc
+x_train = sc.fit_transform(X_train) # maybe better to change to different varibale name, standardscaler.fit_transform is scale the training dataset
+x_test = sc.transform(X_test) # standardscaler.transform is to scale the test dataset. It is reasonable that both the training and test datasets need to scaled in the same method
 
-# Custom scoring function based on R2 (same as your existing code)
-# Standardize the data
-def custom_scorer(y_true, y_pred):
-    r_squared = r2_score(y_pred.flatten(), y_true)
-    return r_squared
 
-# Create a custom scorer for GridSearchCV
-scorer = make_scorer(custom_scorer, greater_is_better=True)
-
-# Define the Gradient Boosting Machine (GBM) model
-gbm = GradientBoostingRegressor()
-
-# Define the grid of hyperparameters to search
+# Define the parameter grid for GridSearchCV (SVM specific hyperparameters)
 param_grid = {
-    'n_estimators': [100, 200, 300],      # Number of boosting stages
-    'learning_rate': [0.01, 0.1, 0.2],   # Learning rate
-    'max_depth': [3, 5, 7],              # Maximum depth of individual estimators
-    'min_samples_split': [2, 10],        # Minimum samples needed to split
-    'min_samples_leaf': [1, 5]           # Minimum samples in a leaf
+    'C': [0.1, 1, 10, 100],  # Regularization parameter
+    'epsilon': [0.01, 0.1, 0.2],  # Epsilon in the epsilon-SVR model
+    'kernel': ['linear', 'rbf']  # Kernel type
 }
 
-# Initialize GridSearchCV with GBM
-grid_search = GridSearchCV(estimator=gbm, param_grid=param_grid, scoring=scorer, cv=5, verbose=1, n_jobs=-1)
+# Initialize the SVM Regressor model
+svm_model = SVR()
 
-# Perform the grid search
-grid_search.fit(X_train_scaled, y_train)
+# Set up the GridSearchCV
+grid_search = GridSearchCV(estimator=svm_model, param_grid=param_grid, 
+                           cv=5, scoring='neg_mean_squared_error', n_jobs=-1, verbose=2)
 
-# Get the best model and parameters
-best_gbm = grid_search.best_estimator_
+# Fit the GridSearchCV
+grid_search.fit(x_train, y_train)
+
+# Get the best parameters and model from grid search
 best_params = grid_search.best_params_
-print(f"Best Parameters: {best_params}")
+best_svm_model = grid_search.best_estimator_
 
 # Predict using the best model
-y_pred = best_gbm.predict(X_test_scaled)
+y_pred = best_svm_model.predict(x_test)
 
 #%% Step 4: Evaluate the performance of the algorithms
 
@@ -197,7 +187,6 @@ cor = np.corrcoef(y_test, y_pred.flatten())
 
 print(f'R2 on Test Data: {r_squared:.4f}')
 print(f'RMSE: {rmse:.4f}')
-
 
 # Plot actual vs predicted
 plt.figure()
@@ -210,3 +199,8 @@ plt.title('Pea Root Rot')
 plt.xlim([0, 8])
 plt.ylim([0, 8])
 plt.show()
+
+# # Save the model to a file
+# with open(r'L:\HSI_Root_Rot\Method\SVM_model2.pkl', 'wb') as f:
+#     pickle.dump(svm_model, f)
+    

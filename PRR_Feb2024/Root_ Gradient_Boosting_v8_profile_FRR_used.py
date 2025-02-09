@@ -28,102 +28,48 @@ import pickle
 path_hsi = r'L:\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
 path_truth = r'L:\HSI_Root_Rot\Data\Truth3.xlsx'
 
-# Read shoot hyperspectral data
-ARR_2024_Shoot = pd.read_excel(path_hsi, sheet_name='ARR_2024_Shoot', header=0)
-waveleth = ARR_2024_Shoot.iloc[:, 0]  # First column
-ARR_Shoot_Cont = ARR_2024_Shoot.iloc[:, 1:17]  # Columns 2 to 17
-ARR_Shoot_Rep1 = ARR_2024_Shoot.iloc[:, 17:17+16]  # Columns 18 to 33
-ARR_Shoot_Rep2 = ARR_2024_Shoot.iloc[:, 17+16:17+16+16]  # Columns 34 to 49
+# Read the Excel file
+FRR_2024_Shoot = pd.read_excel(path_hsi, sheet_name='FRR_2024_Shoot', header=0)
 
-# Read root hyperspectral data
-ARR_2024_Root = pd.read_excel(path_hsi, sheet_name='ARR_2024_Root', header=0)
-ARR_Root_Cont = ARR_2024_Root.iloc[:, 1:17]  # Columns 2 to 17
-ARR_Root_Rep1 = ARR_2024_Root.iloc[:, 17:17+16]  # Columns 18 to 33
-ARR_Root_Rep2 = ARR_2024_Root.iloc[:, 17+16:17+16+16]  # Columns 34 to 49
+# Extract data based on column indices
+waveleth = FRR_2024_Shoot.iloc[:, 0]  # First column
+FRR_Shoot_Cont = FRR_2024_Shoot.iloc[:, 1:17]  # Columns 2 to 17 (MATLAB uses 1-based index)
+FRR_Shoot_Rep1 = FRR_2024_Shoot.iloc[:, 17:17+16]  # Columns 18 to 33
+FRR_Shoot_Rep2 = FRR_2024_Shoot.iloc[:, 17+16:17+16+16]  # Columns 34 to 49
 
-# Read truth labels
-# ARR_truth_txt = pd.read_excel(path_truth, sheet_name='ARR', header=None)
-# labe_cont = ARR_truth_txt.iloc[0:16, 1].astype(str).tolist()
-# labe_rep1 = ARR_truth_txt.iloc[16:32, 1].astype(str).tolist()
-# labe_rep2 = ARR_truth_txt.iloc[32:, 1].astype(str).tolist()
+# # Read truth labels
+# FRR_truth_txt = pd.read_excel(path_truth, sheet_name='FRR', header=None)
+# labe_cont = FRR_truth_txt.iloc[0:16, 1].astype(str).tolist()
+# labe_rep1 = FRR_truth_txt.iloc[16:32, 1].astype(str).tolist()
+# labe_rep2 = FRR_truth_txt.iloc[32:, 1].astype(str).tolist()
 
-# Plot shoot data
+# Plot the first dataset
 plt.figure()
 for i in range(16):
-    plt.plot(waveleth, ARR_Shoot_Cont.iloc[:, i])
+    plt.plot(waveleth, FRR_Shoot_Cont.iloc[:, i])
 # plt.legend(labe_cont)
 plt.xlabel('Wavelength (nm)')
 plt.ylabel('Reflectance')
 plt.show()
 
-# plt.figure()
-# for i in range(16):
-#     plt.plot(waveleth, ARR_Shoot_Rep1.iloc[:, i])
-# # plt.legend(labe_rep1)
-# plt.xlabel('Wavelength (nm)')
-# plt.ylabel('Reflectance')
-# plt.show()
-
-# plt.figure()
-# plt.plot(waveleth, ARR_Shoot_Rep2.iloc[:, 0], '-k', 
-#          waveleth, ARR_Shoot_Rep2.iloc[:, 1], '-r', 
-#          waveleth, ARR_Shoot_Rep2.iloc[:, 2], '-b')
-# plt.xlabel('Wavelength (nm)')
-# plt.ylabel('Reflectance')
-# plt.show()
-
-# Plot root data
+# Plot the second dataset
 plt.figure()
-for i in range(16):
-    plt.plot(waveleth, ARR_Root_Cont.iloc[:, i])
-# plt.legend(labe_cont)
+plt.plot(waveleth, FRR_Shoot_Rep2.iloc[:, 0], '-k', 
+         waveleth, FRR_Shoot_Rep2.iloc[:, 1], '-r', 
+         waveleth, FRR_Shoot_Rep2.iloc[:, 2], '-b')
 plt.xlabel('Wavelength (nm)')
 plt.ylabel('Reflectance')
 plt.show()
 
-# plt.figure()
-# for i in range(16):
-#     plt.plot(waveleth, ARR_Root_Rep1.iloc[:, i])
-# # plt.legend(labe_rep1)
-# plt.xlabel('Wavelength (nm)')
-# plt.ylabel('Reflectance')
-# plt.show()
-
-# plt.figure()
-# plt.plot(waveleth, ARR_Root_Rep2.iloc[:, 0], '-k', 
-#          waveleth, ARR_Root_Rep2.iloc[:, 1], '-r', 
-#          waveleth, ARR_Root_Rep2.iloc[:, 2], '-b')
-# plt.xlabel('Wavelength (nm)')
-# plt.ylabel('Reflectance')
-# plt.show()
-
-# # Root-to-shoot reflectance ratio
-# rr = ARR_2024_Root.iloc[:, 1:].to_numpy()
-# ss = ARR_2024_Shoot.iloc[:, 1:].to_numpy()
-
-# plt.figure()
-# plt.plot(rr, ss, '.k')
-# plt.xlabel('Root Reflectance')
-# plt.ylabel('Shoot Reflectance')
-# plt.show()
-
-# plt.figure()
-# plt.plot(waveleth, np.nanmean(rr / ss, axis=1), '-k')
-# plt.xlabel('Wavelength (nm)')
-# plt.ylabel('Reflectance (Root/Shoot)')
-# plt.show()
-
-# Read ground truth data
-ARR_truth = pd.read_excel(path_truth, sheet_name='ARR', header=0)
-
-XX_Shoot = np.vstack([ARR_Shoot_Cont.to_numpy().T, ARR_Shoot_Rep1.to_numpy().T, ARR_Shoot_Rep2.to_numpy().T])
-XX_Root = np.vstack([ARR_Root_Cont.to_numpy().T, ARR_Root_Rep1.to_numpy().T, ARR_Root_Rep2.to_numpy().T])
-YY = ARR_truth.iloc[:, 6].to_numpy()
+# Prepare data
+FRR_truth = pd.read_excel("L:/HSI_Root_Rot/Data/Truth3.xlsx", sheet_name='FRR',header=0).values
+XX_Shoot = np.vstack((FRR_Shoot_Cont.T, FRR_Shoot_Rep1.T, FRR_Shoot_Rep2.T))
+YY = FRR_truth[:, 6]
 
 #%% Step 2:Preprocessing 
 ###############################################
 # Option 2: Remove invaludate values
-X = XX_Root
+X = XX_Shoot
 X = X[:, :-3]
 y = YY.astype(float)
 
@@ -144,7 +90,6 @@ trainIdx = splitIdx[:int(splitRatio * len(X))]
 testIdx = splitIdx[int(splitRatio * len(X)):] 
 X_train, X_test = X[trainIdx], X[testIdx]
 y_train, y_test = y[trainIdx], y[testIdx]
-###############################################
 
 #%% Step 3: Test different AI ML algorithms
 
