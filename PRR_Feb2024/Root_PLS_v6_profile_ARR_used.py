@@ -175,13 +175,13 @@ print(f'R^2 on Test Data: {r2}')
 # Plot actual vs. predicted values
 plt.figure()
 plt.scatter(y_test, y_pred, c='k', marker='o')
-plt.text(4, 2.5, rf"$R^2 = {r2:.2f}$")
-plt.text(4, 2, f'RMSE={rmse_s:.2f}')
+plt.text(6, 1.5, rf"$R^2 = {r2:.2f}$")
+plt.text(6, 1, f'RMSE={rmse_s:.2f}')
 plt.xlabel('Visual Rating')
 plt.ylabel('Estimated Root Rot')
-plt.title('Pea Root Rot')
-plt.xlim([0, 7])
-plt.ylim([0, 7])
+# plt.title('Pea Root Rot')
+plt.xlim([0, 8])
+plt.ylim([0, 8])
 plt.show()
 
 
@@ -207,7 +207,7 @@ plt.ylim([0, mx])
 plt.xlim([300, 1100])
 plt.show()
 
-plt.close('all')
+
 
 # Save the model to a file
 # with open('L:\HSI_Root_Rot\Method\pls_model2.pkl', 'wb') as f:

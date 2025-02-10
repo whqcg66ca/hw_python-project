@@ -5,7 +5,7 @@ from sklearn.cross_decomposition import PLSRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 
-# %% Step 1: Read the Hyperspectral Shoot data in Excel
+# %% Step 1.1: Read the Hyperspectral data in Dec 2024
 shoot_hsi = 'L:/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
 root_hsi = 'L:/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_root_DecG8.xlsx'
 
@@ -42,21 +42,6 @@ plt.xlabel('Wavelength (nm)')
 plt.ylabel('Reflectance')
 plt.show()
 
-#%% Step 2: Prprocessing
-# ###############################################
-# Option 1: Remove invaludate values
-# X = dec_2024_root.T
-# X = X[:, :-3]  # Remove last three columns
-# X_col = X[:, 1]
-# ind1 = np.where(np.isnan(X_col))[0]
-# y = labe_root
-# ind2 = np.where(np.isnan(y))[0]
-# ind = np.sort(np.concatenate([ind1, ind2]))
-
-# X = np.delete(X, ind, axis=0)
-# y = np.delete(y, ind)
-###############################################
-
 ###############################################
 # Option 2: Remove invaludate values
 X = dec_2024_Shoot.T
@@ -68,6 +53,79 @@ nan_mask = ~np.isnan(X[:, 1]) & ~np.isnan(y)
 X = X[nan_mask]
 y = y[nan_mask]
 ###############################################
+
+#%% Step 1.2 Read the Feb 2024 data
+
+# Define file paths
+path_hsi = r'L:\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
+path_truth = r'L:\HSI_Root_Rot\Data\Truth3.xlsx'
+
+# Read shoot hyperspectral data
+ARR_2024_Shoot = pd.read_excel(path_hsi, sheet_name='ARR_2024_Shoot', header=0)
+waveleth = ARR_2024_Shoot.iloc[:, 0]  # First column
+ARR_Shoot_Cont = ARR_2024_Shoot.iloc[:, 1:17]  # Columns 2 to 17
+ARR_Shoot_Rep1 = ARR_2024_Shoot.iloc[:, 17:17+16]  # Columns 18 to 33
+ARR_Shoot_Rep2 = ARR_2024_Shoot.iloc[:, 17+16:17+16+16]  # Columns 34 to 49
+
+# Read root hyperspectral data
+ARR_2024_Root = pd.read_excel(path_hsi, sheet_name='ARR_2024_Root', header=0)
+ARR_Root_Cont = ARR_2024_Root.iloc[:, 1:17]  # Columns 2 to 17
+ARR_Root_Rep1 = ARR_2024_Root.iloc[:, 17:17+16]  # Columns 18 to 33
+ARR_Root_Rep2 = ARR_2024_Root.iloc[:, 17+16:17+16+16]  # Columns 34 to 49
+
+# Read truth labels
+# ARR_truth_txt = pd.read_excel(path_truth, sheet_name='ARR', header=None)
+# labe_cont = ARR_truth_txt.iloc[0:16, 1].astype(str).tolist()
+# labe_rep1 = ARR_truth_txt.iloc[16:32, 1].astype(str).tolist()
+# labe_rep2 = ARR_truth_txt.iloc[32:, 1].astype(str).tolist()
+
+# Plot shoot data
+plt.figure()
+for i in range(16):
+    plt.plot(waveleth, ARR_Shoot_Cont.iloc[:, i])
+# plt.legend(labe_cont)
+plt.xlabel('Wavelength (nm)')
+plt.ylabel('Reflectance')
+plt.show()
+
+# Plot root data
+plt.figure()
+for i in range(16):
+    plt.plot(waveleth, ARR_Root_Cont.iloc[:, i])
+# plt.legend(labe_cont)
+plt.xlabel('Wavelength (nm)')
+plt.ylabel('Reflectance')
+plt.show()
+
+# Read ground truth data
+ARR_truth = pd.read_excel(path_truth, sheet_name='ARR', header=0)
+
+XX_Shoot = np.vstack([ARR_Shoot_Cont.to_numpy().T, ARR_Shoot_Rep1.to_numpy().T, ARR_Shoot_Rep2.to_numpy().T])
+XX_Root = np.vstack([ARR_Root_Cont.to_numpy().T, ARR_Root_Rep1.to_numpy().T, ARR_Root_Rep2.to_numpy().T])
+YY = ARR_truth.iloc[:, 6].to_numpy()
+
+
+X_Feb = XX_Shoot 
+X_Feb = X_Feb[:, :-3]
+y_Feb = YY.astype(float)
+
+# Remove NaN values
+nan_mask = ~np.isnan(X_Feb[:, 1]) & ~np.isnan(y_Feb)
+X_Feb = X_Feb[nan_mask]
+y_Feb = y_Feb[nan_mask]
+###############################################
+
+
+#%% Step 2: Prprocessing
+# Combine December and February matrices
+X_combined = np.vstack([X, X_Feb])
+
+# Combine corresponding labels
+y_combined = np.hstack([y, y_Feb])  # Use hstack since y is 1D
+
+print("Combined X shape:", X_combined.shape)
+print("Combined y shape:", y_combined.shape)
+
 
 #################################################
 # Option -1: Split the training and test dateset 
@@ -82,11 +140,11 @@ y = y[nan_mask]
 np.random.seed(50)
 # Split data into training and testing sets
 splitRatio = 0.8
-splitIdx = np.random.permutation(len(X))
-trainIdx = splitIdx[:int(splitRatio * len(X))]
-testIdx = splitIdx[int(splitRatio * len(X)):] 
-X_train, X_test = X[trainIdx], X[testIdx]
-y_train, y_test = y[trainIdx], y[testIdx]
+splitIdx = np.random.permutation(len(X_combined ))
+trainIdx = splitIdx[:int(splitRatio * len(X_combined ))]
+testIdx = splitIdx[int(splitRatio * len(X_combined )):] 
+X_train, X_test = X_combined [trainIdx], X_combined [testIdx]
+y_train, y_test = y_combined[trainIdx], y_combined[testIdx]
 ###############################################
 
 # %% Step 3: Regression models 
