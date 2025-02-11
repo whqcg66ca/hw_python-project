@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
+dis='H:'
 
 # %% Step 1: Read the Hyperspectral Shoot data in Excel
-shoot_hsi = 'L:/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
-root_hsi = 'L:/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_root_DecG8.xlsx'
+shoot_hsi = dis+'/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
+root_hsi = dis+'/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_root_DecG8.xlsx'
 
 df_s1 = pd.read_excel(shoot_hsi, sheet_name='ShootR1toR5', header=0).astype(float)
 df_s2 = pd.read_excel(shoot_hsi, sheet_name='ShootR6toR10', header=0).astype(float)
@@ -22,7 +23,7 @@ df_t3 = pd.read_excel(root_hsi, sheet_name='RootR11toR15', header=0).astype(floa
 
 dec_2024_root = np.hstack([df_t1.iloc[:, 1:].values, df_t2.iloc[:, 1:].values, df_t3.iloc[:, 1:].values])
 
-dec_truth = pd.read_excel('L:/HSI_Root_Rot/Data/Truth_December2024_v2.xlsx', sheet_name='Feuil1', header=0)
+dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2.xlsx', sheet_name='Feuil1', header=0)
 labe_shoot = dec_truth.iloc[:, -3].values.astype(float)
 labe_root = dec_truth.iloc[:, -1].values.astype(float)
 
@@ -137,9 +138,11 @@ W0 = pls.x_weights_ / np.sqrt(np.sum(pls.x_weights_ ** 2, axis=0))
 p = X.shape[1]
 sumSq = np.sum(pls.x_scores_ ** 2, axis=0) * np.sum(pls.y_loadings_ ** 2, axis=0)
 vipScore = np.sqrt(p * np.sum(sumSq * (W0 ** 2), axis=1) / np.sum(sumSq))
+# Normalize VIP scores between 0 and 1
+vipScore_norm = (vipScore - np.min(vipScore)) / (np.max(vipScore) - np.min(vipScore))
 
 plt.figure()
-plt.scatter(waveleth[:-3], vipScore, c='k', marker='x')
+plt.scatter(waveleth[:-3], vipScore_norm, c='k', marker='x')
 mx = 4.5
 plt.axvline(x=400, color='b')
 plt.axvline(x=500, color='g')
@@ -149,6 +152,6 @@ plt.axvline(x=750, color='m')
 plt.axvline(x=970, color='y')
 plt.xlabel('Wavelength (nm)')
 plt.ylabel('Importance of wavelength')
-plt.ylim([0, mx])
+plt.ylim([0, 1])
 plt.xlim([300, 1100])
 plt.show()
