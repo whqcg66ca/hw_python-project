@@ -7,7 +7,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler as xscaler # includes the preprocessing,standardscaler is to prepare the training dataset
 import pickle
 from sklearn.metrics import r2_score, mean_squared_error
-
+dis='H:'
 # def nan_stat_eva_model(y_pred, y_test):
 #     R = np.corrcoef(y_test, y_pred, rowvar=False)[0, 1]
 #     bias = np.mean(y_pred - y_test)
@@ -19,8 +19,8 @@ from sklearn.metrics import r2_score, mean_squared_error
 
 #%% Step 1: Load data
 # Define file paths
-path_hsi = r'L:\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
-path_truth = r'L:\HSI_Root_Rot\Data\Truth3.xlsx'
+path_hsi = dis+r'\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
+path_truth = dis+ r'\HSI_Root_Rot\Data\Truth3.xlsx'
 
 # Read the Excel file
 FRR_2024_Shoot = pd.read_excel(path_hsi, sheet_name='FRR_2024_Shoot', header=0)
@@ -56,7 +56,7 @@ plt.ylabel('Reflectance')
 plt.show()
 
 # Prepare data
-FRR_truth = pd.read_excel("L:/HSI_Root_Rot/Data/Truth3.xlsx", sheet_name='FRR',header=0).values
+FRR_truth = pd.read_excel(dis+"/HSI_Root_Rot/Data/Truth3.xlsx", sheet_name='FRR',header=0).values
 XX_Shoot = np.vstack((FRR_Shoot_Cont.T, FRR_Shoot_Rep1.T, FRR_Shoot_Rep2.T))
 YY = FRR_truth[:, 6]
 
@@ -129,13 +129,13 @@ print(f'R^2 on Test Data: {r2}')
 # Plot actual vs. predicted values
 plt.figure()
 plt.scatter(y_test, y_pred, c='k', marker='o')
-plt.text(4, 2.5, rf"$R^2 = {r2:.2f}$")
-plt.text(4, 2, f'RMSE={rmse_s:.2f}')
+plt.text(6, 1.5, rf"$R^2 = {r2:.2f}$")
+plt.text(6, 1, f'RMSE={rmse_s:.2f}')
 plt.xlabel('Visual Rating')
 plt.ylabel('Estimated Root Rot')
-plt.title('Pea Root Rot')
-plt.xlim([0, 7])
-plt.ylim([0, 7])
+# plt.title('Pea Root Rot')
+plt.xlim([0, 8])
+plt.ylim([0, 8])
 plt.show()
 
 #%% Step 5: Calculate VIP scores
