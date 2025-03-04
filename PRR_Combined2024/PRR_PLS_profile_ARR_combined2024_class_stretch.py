@@ -1,31 +1,15 @@
-import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor 
-from sklearn.metrics import accuracy_score, make_scorer
-from sklearn.model_selection import GridSearchCV
-from sklearn.svm import SVR  # Import SVM Regressor
-from sklearn.neighbors import KNeighborsRegressor
-from sklearn.tree import DecisionTreeRegressor  
-from sklearn.preprocessing import StandardScaler as xscaler # includes the preprocessing,standardscaler is to prepare the training dataset
-from sklearn.naive_bayes import GaussianNB
-from sklearn.linear_model import LogisticRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import r2_score, root_mean_squared_error
-
-from xgboost import XGBRegressor
-
-import tensorflow as tf
-from keras import Sequential
-from keras.layers import Dense
-import pickle
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, confusion_matrix, cohen_kappa_score
+from sklearn.preprocessing import LabelEncoder
 dis='L:'
 
 # %% Step 1.1: Read the Hyperspectral data in Dec 2024
-shoot_hsi = dis+ '/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
+shoot_hsi = dis+'/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
 root_hsi = dis+'/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_root_DecG8.xlsx'
 
 df_s1 = pd.read_excel(shoot_hsi, sheet_name='ShootR1toR5', header=0).astype(float)
@@ -73,10 +57,14 @@ X = X[nan_mask]
 y = y[nan_mask]
 ###############################################
 
+# Convert labels to categorical (if needed for classification)
+label_encoder = LabelEncoder()
+y_form = label_encoder.fit_transform(y)  # Encoding categorical labels
+
 #%% Step 1.2 Read the Feb 2024 data
 
 # Define file paths
-path_hsi =  dis+r'\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
+path_hsi = dis+r'\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
 path_truth = dis+ r'\HSI_Root_Rot\Data\Truth3.xlsx'
 
 # Read shoot hyperspectral data
@@ -121,7 +109,8 @@ ARR_truth = pd.read_excel(path_truth, sheet_name='ARR', header=0)
 
 XX_Shoot = np.vstack([ARR_Shoot_Cont.to_numpy().T, ARR_Shoot_Rep1.to_numpy().T, ARR_Shoot_Rep2.to_numpy().T])
 XX_Root = np.vstack([ARR_Root_Cont.to_numpy().T, ARR_Root_Rep1.to_numpy().T, ARR_Root_Rep2.to_numpy().T])
-YY = ARR_truth.iloc[:, 6].to_numpy()
+YY = ARR_truth.iloc[:, -1].to_numpy()
+
 
 X_Feb = XX_Shoot 
 X_Feb = X_Feb[:, :-3]
@@ -133,6 +122,8 @@ X_Feb = X_Feb[nan_mask]
 y_Feb = y_Feb[nan_mask]
 ###############################################
 
+# Convert labels to categorical (if needed for classification)
+# y_Feb = label_encoder.fit_transform(y_Feb)  # Encoding categorical labels
 
 #%% Step 2: Prprocessing
 # Combine December and February matrices
@@ -166,64 +157,100 @@ y_train, y_test = y_combined[trainIdx], y_combined[testIdx]
 ###############################################
 
 # %% Step 3: Regression models 
+# Test Number of latent variables
+accuracy = []
+for Ncom in range(1, 41):
+    pls = PLSRegression(n_components=Ncom)
+    pls.fit(X_train, y_train)
+    
+    # Apply LDA on the reduced components (PLS scores)
+    X_train_pls = pls.transform(X_train)  # Reduced components
+    X_test_pls = pls.transform(X_test)
+    
+    lda = LinearDiscriminantAnalysis()
+    lda.fit(X_train_pls, y_train)
+    
+    # Predict on the test set
+    y_pred = lda.predict(X_test_pls)
+    accuracy.append(accuracy_score(y_test, y_pred))
+    print(f'Accuracy on Test Data for {Ncom} components: {accuracy[-1]}')
 
-# Standardize the data
-scaler = xscaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
+# Plot accuracy vs. number of components
+plt.figure()
+plt.plot(range(1, 41), accuracy, 'ok')
+plt.xlabel('Number of components in PLS-LDA')
+plt.ylabel('Accuracy')
+plt.title('Selection of Components')
+plt.show()
 
-# Custom scoring function based on R2 (same as your existing code)
-def custom_scorer(y_true, y_pred):
-    r_squared = r2_score(y_pred.flatten(), y_true)
-    return r_squared
+# Select optimal number of components
+num_com = np.argmax(accuracy) + 1
 
-# Create a custom scorer for GridSearchCV
-scorer = make_scorer(custom_scorer, greater_is_better=True)
+# Train final model with optimal number of components
+pls = PLSRegression(n_components=num_com)
+pls.fit(X_train, y_train)
 
+X_train_pls = pls.transform(X_train)
+X_test_pls = pls.transform(X_test)
 
-# Define the Logistic Regression model
-log_reg = LogisticRegression(max_iter=1000)  # You can adjust max_iter if needed
+lda = LinearDiscriminantAnalysis()
+lda.fit(X_train_pls, y_train)
 
-# Define the grid of hyperparameters to search
-param_grid = {
-    'C': [0.01, 0.1, 1, 10],              # Regularization strength
-    'penalty': ['l1', 'l2', 'elasticnet'],  # Penalty terms for regularization
-    'solver': ['liblinear', 'saga']         # Solvers for optimization
-}
-
-# Initialize GridSearchCV with Logistic Regression
-grid_search = GridSearchCV(estimator=log_reg, param_grid=param_grid, scoring=scorer, cv=5, verbose=1, n_jobs=-1)
-
-# Perform the grid search
-grid_search.fit(X_train_scaled, y_train)
-
-# Get the best model and parameters
-best_log_reg = grid_search.best_estimator_
-best_params = grid_search.best_params_
-print(f"Best Parameters: {best_params}")
-
-# Predict using the best model
-y_pred = best_log_reg.predict(X_test_scaled)
-
-#%% Step 4: Evaluate the performance of the algorithms
-
-# Evaluate model performance
-r_squared = r2_score(y_test, y_pred.flatten())
-rmse = root_mean_squared_error(y_test, y_pred.flatten())
-cor = np.corrcoef(y_test, y_pred.flatten())
-
-print(f'R2 on Test Data: {r_squared:.4f}')
-print(f'RMSE: {rmse:.4f}')
+y_pred = lda.predict(X_test_pls)
 
 
-# Plot actual vs predicted
+# Evaluate model
+r2 = r2_score(y_test, y_pred)
+rmse_s = np.sqrt(mean_squared_error(y_test, y_pred))
+print(f'R^2 on Test Data: {r2}')
+
+# Plot actual vs. predicted values
 plt.figure()
 plt.scatter(y_test, y_pred, c='k', marker='o')
-plt.text(6, 1.5, rf'$R^2 = {r_squared:.2f}$')
-plt.text(6, 1, f'RMSE = {rmse:.2f}')
+plt.text(6, 1.5, rf"$R^2 = {r2:.2f}$")
+plt.text(6, 1, f'RMSE={rmse_s:.2f}')
 plt.xlabel('Visual Rating')
 plt.ylabel('Estimated Root Rot')
 # plt.title('Pea Root Rot')
 plt.xlim([0, 8])
 plt.ylim([0, 8])
+plt.show()
+
+# Evaluate the model
+accuracy_final = accuracy_score(y_test, y_pred)
+conf_matrix = confusion_matrix(y_test, y_pred)
+print(f'Final Accuracy on Test Data: {accuracy_final}')
+print('Confusion Matrix:')
+print(conf_matrix)
+
+# Plot Confusion Matrix
+plt.figure()
+plt.imshow(conf_matrix, cmap='Blues', interpolation='nearest')
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.colorbar()
+plt.xticks(np.arange(len(label_encoder.classes_)), label_encoder.classes_)
+plt.yticks(np.arange(len(label_encoder.classes_)), label_encoder.classes_)
+plt.show()
+
+#%% Calculate Variable Importance in Projection (VIP)
+W0 = pls.x_weights_ / np.sqrt(np.sum(pls.x_weights_ ** 2, axis=0))
+p = X.shape[1]
+sumSq = np.sum(pls.x_scores_ ** 2, axis=0) * np.sum(pls.y_loadings_ ** 2, axis=0)
+vipScore = np.sqrt(p * np.sum(sumSq * (W0 ** 2), axis=1) / np.sum(sumSq))
+
+plt.figure()
+plt.scatter(waveleth[:-3], vipScore, c='k', marker='x')
+mx = 4.5
+plt.axvline(x=400, color='b')
+plt.axvline(x=500, color='g')
+plt.axvline(x=600, color='r')
+plt.axvline(x=680, color='k')
+plt.axvline(x=750, color='m')
+plt.axvline(x=970, color='y')
+plt.xlabel('Wavelength (nm)')
+plt.ylabel('Importance of wavelength')
+plt.ylim([0, mx])
+plt.xlim([300, 1100])
 plt.show()
