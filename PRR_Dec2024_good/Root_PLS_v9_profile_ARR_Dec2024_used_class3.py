@@ -2,8 +2,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.cross_decomposition import PLSRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, confusion_matrix, cohen_kappa_score
+from sklearn.preprocessing import LabelEncoder
 dis='L:'
 
 # %% Step 1: Read the Hyperspectral Shoot data in Excel
@@ -23,7 +25,7 @@ df_t3 = pd.read_excel(root_hsi, sheet_name='RootR11toR15', header=0).astype(floa
 
 dec_2024_root = np.hstack([df_t1.iloc[:, 1:].values, df_t2.iloc[:, 1:].values, df_t3.iloc[:, 1:].values])
 
-dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2.xlsx', sheet_name='Feuil1', header=0)
+dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2_class3.xlsx', sheet_name='Feuil1', header=0)
 labe_shoot = dec_truth.iloc[:, -3].values.astype(float)
 labe_root = dec_truth.iloc[:, -1].values.astype(float)
 
@@ -70,6 +72,10 @@ X = X[nan_mask]
 y = y[nan_mask]
 ###############################################
 
+# Convert labels to categorical (if needed for classification)
+label_encoder = LabelEncoder()
+y = label_encoder.fit_transform(y)  # Encoding categorical labels
+
 #################################################
 # Option -1: Split the training and test dateset 
 # Split data into training and testing sets
@@ -92,29 +98,46 @@ y_train, y_test = y[trainIdx], y[testIdx]
 
 # %% Step 3: Regression models 
 # Test Number of latent variables
-rmse = []
+accuracy = []
 for Ncom in range(1, 41):
     pls = PLSRegression(n_components=Ncom)
     pls.fit(X_train, y_train)
-    y_pred = pls.predict(X_test)
-    rmse.append(np.sqrt(mean_squared_error(y_test, y_pred)))
-    print(f'Mean Squared Error on Test Data for {Ncom} components: {rmse[-1]}')
+    
+    # Apply LDA on the reduced components (PLS scores)
+    X_train_pls = pls.transform(X_train)  # Reduced components
+    X_test_pls = pls.transform(X_test)
+    
+    lda = LinearDiscriminantAnalysis()
+    lda.fit(X_train_pls, y_train)
+    
+    # Predict on the test set
+    y_pred = lda.predict(X_test_pls)
+    accuracy.append(accuracy_score(y_test, y_pred))
+    print(f'Accuracy on Test Data for {Ncom} components: {accuracy[-1]}')
 
-# Plot RMSE vs. number of components
+# Plot accuracy vs. number of components
 plt.figure()
-plt.plot(range(1, 41), rmse, 'ok')
-plt.xlabel('Number of components in PLSR')
-plt.ylabel('RMSE')
+plt.plot(range(1, 41), accuracy, 'ok')
+plt.xlabel('Number of components in PLS-LDA')
+plt.ylabel('Accuracy')
 plt.title('Selection of Components')
 plt.show()
 
 # Select optimal number of components
-num_com = np.argmin(rmse) + 1
+num_com = np.argmax(accuracy) + 1
 
-# Train final model
+# Train final model with optimal number of components
 pls = PLSRegression(n_components=num_com)
 pls.fit(X_train, y_train)
-y_pred = pls.predict(X_test)
+
+X_train_pls = pls.transform(X_train)
+X_test_pls = pls.transform(X_test)
+
+lda = LinearDiscriminantAnalysis()
+lda.fit(X_train_pls, y_train)
+
+y_pred = lda.predict(X_test_pls)
+
 
 # Evaluate model
 r2 = r2_score(y_test, y_pred)
@@ -132,6 +155,26 @@ plt.ylabel('Estimated Root Rot')
 plt.xlim([0, 8])
 plt.ylim([0, 8])
 plt.show()
+
+# Evaluate the model
+accuracy_final = accuracy_score(y_test, y_pred)
+conf_matrix = confusion_matrix(y_test, y_pred)
+print(f'Final Accuracy on Test Data: {accuracy_final}')
+print('Confusion Matrix:')
+print(conf_matrix)
+
+# Plot Confusion Matrix
+plt.figure()
+plt.imshow(conf_matrix, cmap='Blues', interpolation='nearest')
+plt.title('Confusion Matrix')
+plt.xlabel('Estimated Root Rot')
+plt.ylabel('Visual Rating')
+plt.colorbar()
+plt.xticks(np.arange(len(label_encoder.classes_)), label_encoder.classes_)
+plt.yticks(np.arange(len(label_encoder.classes_)), label_encoder.classes_)
+plt.show()
+
+
 
 # Calculate Variable Importance in Projection (VIP)
 W0 = pls.x_weights_ / np.sqrt(np.sum(pls.x_weights_ ** 2, axis=0))

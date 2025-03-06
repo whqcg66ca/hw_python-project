@@ -117,7 +117,7 @@ YY = ARR_truth.iloc[:, 6].to_numpy()
 
 #%% Step 2: Preprocessing 
 
-X = XX_Shoot 
+X = XX_Root 
 X = X[:, :-3]
 y = YY .astype(float)
 
