@@ -2,11 +2,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.cross_decomposition import PLSRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, confusion_matrix, cohen_kappa_score
+from sklearn.preprocessing import LabelEncoder
 dis='L:'
 
-# %% Step 1.1: Read the Hyperspectral data in Dec 2024
+# %% Step 1: Read the Hyperspectral Shoot data in Excel
 shoot_hsi = dis+'/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
 root_hsi = dis+'/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_root_DecG8.xlsx'
 
@@ -23,7 +25,7 @@ df_t3 = pd.read_excel(root_hsi, sheet_name='RootR11toR15', header=0).astype(floa
 
 dec_2024_root = np.hstack([df_t1.iloc[:, 1:].values, df_t2.iloc[:, 1:].values, df_t3.iloc[:, 1:].values])
 
-dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2.xlsx', sheet_name='Feuil1', header=0)
+dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2_class3.xlsx', sheet_name='Feuil1', header=0)
 labe_shoot = dec_truth.iloc[:, -3].values.astype(float)
 labe_root = dec_truth.iloc[:, -1].values.astype(float)
 
@@ -43,9 +45,24 @@ plt.xlabel('Wavelength (nm)')
 plt.ylabel('Reflectance')
 plt.show()
 
+#%% Step 2: Prprocessing
+# ###############################################
+# Option 1: Remove invaludate values
+# X = dec_2024_root.T
+# X = X[:, :-3]  # Remove last three columns
+# X_col = X[:, 1]
+# ind1 = np.where(np.isnan(X_col))[0]
+# y = labe_root
+# ind2 = np.where(np.isnan(y))[0]
+# ind = np.sort(np.concatenate([ind1, ind2]))
+
+# X = np.delete(X, ind, axis=0)
+# y = np.delete(y, ind)
+###############################################
+
 ###############################################
 # Option 2: Remove invaludate values
-X = dec_2024_Shoot.T
+X = dec_2024_root.T
 X = X[:, :-3]
 y = labe_root
 
@@ -55,78 +72,9 @@ X = X[nan_mask]
 y = y[nan_mask]
 ###############################################
 
-#%% Step 1.2 Read the Feb 2024 data
-
-# Define file paths
-path_hsi = dis+ r'\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
-path_truth = dis+ r'\HSI_Root_Rot\Data\Truth3.xlsx'
-
-# Read shoot hyperspectral data
-ARR_2024_Shoot = pd.read_excel(path_hsi, sheet_name='ARR_2024_Shoot', header=0)
-waveleth = ARR_2024_Shoot.iloc[:, 0]  # First column
-ARR_Shoot_Cont = ARR_2024_Shoot.iloc[:, 1:17]  # Columns 2 to 17
-ARR_Shoot_Rep1 = ARR_2024_Shoot.iloc[:, 17:17+16]  # Columns 18 to 33
-ARR_Shoot_Rep2 = ARR_2024_Shoot.iloc[:, 17+16:17+16+16]  # Columns 34 to 49
-
-# Read root hyperspectral data
-ARR_2024_Root = pd.read_excel(path_hsi, sheet_name='ARR_2024_Root', header=0)
-ARR_Root_Cont = ARR_2024_Root.iloc[:, 1:17]  # Columns 2 to 17
-ARR_Root_Rep1 = ARR_2024_Root.iloc[:, 17:17+16]  # Columns 18 to 33
-ARR_Root_Rep2 = ARR_2024_Root.iloc[:, 17+16:17+16+16]  # Columns 34 to 49
-
-# Read truth labels
-# ARR_truth_txt = pd.read_excel(path_truth, sheet_name='ARR', header=None)
-# labe_cont = ARR_truth_txt.iloc[0:16, 1].astype(str).tolist()
-# labe_rep1 = ARR_truth_txt.iloc[16:32, 1].astype(str).tolist()
-# labe_rep2 = ARR_truth_txt.iloc[32:, 1].astype(str).tolist()
-
-# Plot shoot data
-plt.figure()
-for i in range(16):
-    plt.plot(waveleth, ARR_Shoot_Cont.iloc[:, i])
-# plt.legend(labe_cont)
-plt.xlabel('Wavelength (nm)')
-plt.ylabel('Reflectance')
-plt.show()
-
-# Plot root data
-plt.figure()
-for i in range(16):
-    plt.plot(waveleth, ARR_Root_Cont.iloc[:, i])
-# plt.legend(labe_cont)
-plt.xlabel('Wavelength (nm)')
-plt.ylabel('Reflectance')
-plt.show()
-
-# Read ground truth data
-ARR_truth = pd.read_excel(path_truth, sheet_name='ARR', header=0)
-
-XX_Shoot = np.vstack([ARR_Shoot_Cont.to_numpy().T, ARR_Shoot_Rep1.to_numpy().T, ARR_Shoot_Rep2.to_numpy().T])
-XX_Root = np.vstack([ARR_Root_Cont.to_numpy().T, ARR_Root_Rep1.to_numpy().T, ARR_Root_Rep2.to_numpy().T])
-YY = ARR_truth.iloc[:, 6].to_numpy()
-
-
-X_Feb = XX_Shoot 
-X_Feb = X_Feb[:, :-3]
-y_Feb = YY.astype(float)
-
-# Remove NaN values
-nan_mask = ~np.isnan(X_Feb[:, 1]) & ~np.isnan(y_Feb)
-X_Feb = X_Feb[nan_mask]
-y_Feb = y_Feb[nan_mask]
-###############################################
-
-
-#%% Step 2: Prprocessing
-# Combine December and February matrices
-X_combined = np.vstack([X, X_Feb])
-
-# Combine corresponding labels
-y_combined = np.hstack([y, y_Feb])  # Use hstack since y is 1D
-
-print("Combined X shape:", X_combined.shape)
-print("Combined y shape:", y_combined.shape)
-
+# Convert labels to categorical (if needed for classification)
+label_encoder = LabelEncoder()
+y = label_encoder.fit_transform(y)  # Encoding categorical labels
 
 #################################################
 # Option -1: Split the training and test dateset 
@@ -141,38 +89,55 @@ print("Combined y shape:", y_combined.shape)
 np.random.seed(50)
 # Split data into training and testing sets
 splitRatio = 0.8
-splitIdx = np.random.permutation(len(X_combined ))
-trainIdx = splitIdx[:int(splitRatio * len(X_combined ))]
-testIdx = splitIdx[int(splitRatio * len(X_combined )):] 
-X_train, X_test = X_combined [trainIdx], X_combined [testIdx]
-y_train, y_test = y_combined[trainIdx], y_combined[testIdx]
+splitIdx = np.random.permutation(len(X))
+trainIdx = splitIdx[:int(splitRatio * len(X))]
+testIdx = splitIdx[int(splitRatio * len(X)):] 
+X_train, X_test = X[trainIdx], X[testIdx]
+y_train, y_test = y[trainIdx], y[testIdx]
 ###############################################
 
 # %% Step 3: Regression models 
 # Test Number of latent variables
-rmse = []
+accuracy = []
 for Ncom in range(1, 41):
     pls = PLSRegression(n_components=Ncom)
     pls.fit(X_train, y_train)
-    y_pred = pls.predict(X_test)
-    rmse.append(np.sqrt(mean_squared_error(y_test, y_pred)))
-    print(f'Mean Squared Error on Test Data for {Ncom} components: {rmse[-1]}')
+    
+    # Apply LDA on the reduced components (PLS scores)
+    X_train_pls = pls.transform(X_train)  # Reduced components
+    X_test_pls = pls.transform(X_test)
+    
+    lda = LinearDiscriminantAnalysis()
+    lda.fit(X_train_pls, y_train)
+    
+    # Predict on the test set
+    y_pred = lda.predict(X_test_pls)
+    accuracy.append(accuracy_score(y_test, y_pred))
+    print(f'Accuracy on Test Data for {Ncom} components: {accuracy[-1]}')
 
-# Plot RMSE vs. number of components
+# Plot accuracy vs. number of components
 plt.figure()
-plt.plot(range(1, 41), rmse, 'ok')
-plt.xlabel('Number of components in PLSR')
-plt.ylabel('RMSE')
+plt.plot(range(1, 41), accuracy, 'ok')
+plt.xlabel('Number of components in PLS-LDA')
+plt.ylabel('Accuracy')
 plt.title('Selection of Components')
 plt.show()
 
 # Select optimal number of components
-num_com = np.argmin(rmse) + 1
+num_com = np.argmax(accuracy) + 1
 
-# Train final model
+# Train final model with optimal number of components
 pls = PLSRegression(n_components=num_com)
 pls.fit(X_train, y_train)
-y_pred = pls.predict(X_test)
+
+X_train_pls = pls.transform(X_train)
+X_test_pls = pls.transform(X_test)
+
+lda = LinearDiscriminantAnalysis()
+lda.fit(X_train_pls, y_train)
+
+y_pred = lda.predict(X_test_pls)
+
 
 # Evaluate model
 r2 = r2_score(y_test, y_pred)
@@ -191,14 +156,36 @@ plt.xlim([0, 8])
 plt.ylim([0, 8])
 plt.show()
 
+# Evaluate the model
+accuracy_final = accuracy_score(y_test, y_pred)
+conf_matrix = confusion_matrix(y_test, y_pred)
+print(f'Final Accuracy on Test Data: {accuracy_final}')
+print('Confusion Matrix:')
+print(conf_matrix)
+
+# Plot Confusion Matrix
+plt.figure()
+plt.imshow(conf_matrix, cmap='Blues', interpolation='nearest')
+plt.title('Confusion Matrix')
+plt.xlabel('Estimated Root Rot')
+plt.ylabel('Visual Rating')
+plt.colorbar()
+plt.xticks(np.arange(len(label_encoder.classes_)), label_encoder.classes_)
+plt.yticks(np.arange(len(label_encoder.classes_)), label_encoder.classes_)
+plt.show()
+
+
+
 # Calculate Variable Importance in Projection (VIP)
 W0 = pls.x_weights_ / np.sqrt(np.sum(pls.x_weights_ ** 2, axis=0))
 p = X.shape[1]
 sumSq = np.sum(pls.x_scores_ ** 2, axis=0) * np.sum(pls.y_loadings_ ** 2, axis=0)
 vipScore = np.sqrt(p * np.sum(sumSq * (W0 ** 2), axis=1) / np.sum(sumSq))
+# Normalize VIP scores between 0 and 1
+vipScore_norm = (vipScore - np.min(vipScore)) / (np.max(vipScore) - np.min(vipScore))
 
 plt.figure()
-plt.scatter(waveleth[:-3], vipScore, c='k', marker='x')
+plt.scatter(waveleth[:-3], vipScore_norm, c='k', marker='x')
 mx = 4.5
 plt.axvline(x=400, color='b')
 plt.axvline(x=500, color='g')
@@ -208,6 +195,6 @@ plt.axvline(x=750, color='m')
 plt.axvline(x=970, color='y')
 plt.xlabel('Wavelength (nm)')
 plt.ylabel('Importance of wavelength')
-plt.ylim([0, mx])
+plt.ylim([0, 1])
 plt.xlim([300, 1100])
 plt.show()

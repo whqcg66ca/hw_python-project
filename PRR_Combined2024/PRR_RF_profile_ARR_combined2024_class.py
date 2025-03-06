@@ -22,7 +22,7 @@ import tensorflow as tf
 from keras import Sequential
 from keras.layers import Dense
 import pickle
-dis='H:'
+dis='L:'
 
 # %% Step 1.1: Read the Hyperspectral data in Dec 2024
 shoot_hsi = dis+ '/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
@@ -41,7 +41,7 @@ df_t3 = pd.read_excel(root_hsi, sheet_name='RootR11toR15', header=0).astype(floa
 
 dec_2024_root = np.hstack([df_t1.iloc[:, 1:].values, df_t2.iloc[:, 1:].values, df_t3.iloc[:, 1:].values])
 
-dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2.xlsx', sheet_name='Feuil1', header=0)
+dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2_class3_7.xlsx', sheet_name='Feuil1', header=0)
 labe_shoot = dec_truth.iloc[:, -4].values.astype(float)
 labe_root = dec_truth.iloc[:, -1].values.astype(float)
 
@@ -63,7 +63,7 @@ plt.show()
 
 ###############################################
 # Option 2: Remove invaludate values
-X = dec_2024_root.T
+X = dec_2024_Shoot.T
 X = X[:, :-3]
 y = labe_root
 
@@ -77,7 +77,7 @@ y = y[nan_mask]
 
 # Define file paths
 path_hsi =  dis+r'\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
-path_truth = dis+ r'\HSI_Root_Rot\Data\Truth3.xlsx'
+path_truth = dis+ r'\HSI_Root_Rot\Data\Truth3_class3.xlsx'
 
 # Read shoot hyperspectral data
 ARR_2024_Shoot = pd.read_excel(path_hsi, sheet_name='ARR_2024_Shoot', header=0)
@@ -124,7 +124,7 @@ XX_Root = np.vstack([ARR_Root_Cont.to_numpy().T, ARR_Root_Rep1.to_numpy().T, ARR
 YY = ARR_truth.iloc[:, -1].to_numpy()
 
 
-X_Feb = XX_Root 
+X_Feb = XX_Shoot 
 X_Feb = X_Feb[:, :-3]
 y_Feb = YY.astype(float)
 

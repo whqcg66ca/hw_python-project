@@ -22,7 +22,7 @@ import tensorflow as tf
 from keras import Sequential
 from keras.layers import Dense
 import pickle
-dis='H:'
+dis='L:'
 
 # %% Step 1.1: Read the Hyperspectral data in Dec 2024
 shoot_hsi = dis+ '/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
@@ -122,7 +122,6 @@ ARR_truth = pd.read_excel(path_truth, sheet_name='ARR', header=0)
 XX_Shoot = np.vstack([ARR_Shoot_Cont.to_numpy().T, ARR_Shoot_Rep1.to_numpy().T, ARR_Shoot_Rep2.to_numpy().T])
 XX_Root = np.vstack([ARR_Root_Cont.to_numpy().T, ARR_Root_Rep1.to_numpy().T, ARR_Root_Rep2.to_numpy().T])
 YY = ARR_truth.iloc[:, 6].to_numpy()
-
 
 X_Feb = XX_Shoot 
 X_Feb = X_Feb[:, :-3]

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
-dis='H:'
+dis='L:'
 
 # %% Step 1: Read the Hyperspectral Shoot data in Excel
 shoot_hsi = dis+'/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
@@ -60,7 +60,7 @@ plt.show()
 
 ###############################################
 # Option 2: Remove invaludate values
-X = dec_2024_Shoot.T
+X = dec_2024_root.T
 X = X[:, :-3]
 y = labe_root
 

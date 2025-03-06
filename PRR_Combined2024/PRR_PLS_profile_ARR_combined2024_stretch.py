@@ -25,7 +25,15 @@ dec_2024_root = np.hstack([df_t1.iloc[:, 1:].values, df_t2.iloc[:, 1:].values, d
 
 dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2.xlsx', sheet_name='Feuil1', header=0)
 labe_shoot = dec_truth.iloc[:, -3].values.astype(float)
-labe_root = dec_truth.iloc[:, -1].values.astype(float)
+labe_root = dec_truth.iloc[:, -2].values.astype(float)
+
+# Function to scale values from old range [0, 5] to new range [1, 7]
+def scale_values(series, old_min=0, old_max=5, new_min=1, new_max=7):
+    return new_min + (series - old_min) * (new_max - new_min) / (old_max - old_min)
+
+# Apply transformation
+labe_root = scale_values(labe_root)
+
 
 # Plot Shoot Data
 plt.figure()

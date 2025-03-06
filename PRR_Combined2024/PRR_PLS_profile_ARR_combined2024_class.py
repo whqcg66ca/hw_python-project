@@ -6,7 +6,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, confusion_matrix, cohen_kappa_score
 from sklearn.preprocessing import LabelEncoder
-dis='H:'
+dis='L:'
 
 # %% Step 1.1: Read the Hyperspectral data in Dec 2024
 shoot_hsi = dis+'/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
@@ -25,8 +25,8 @@ df_t3 = pd.read_excel(root_hsi, sheet_name='RootR11toR15', header=0).astype(floa
 
 dec_2024_root = np.hstack([df_t1.iloc[:, 1:].values, df_t2.iloc[:, 1:].values, df_t3.iloc[:, 1:].values])
 
-dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2.xlsx', sheet_name='Feuil1', header=0)
-labe_shoot = dec_truth.iloc[:, -4].values.astype(float)
+dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2_class3_7.xlsx', sheet_name='Feuil1', header=0)
+labe_shoot = dec_truth.iloc[:, -3].values.astype(float)
 labe_root = dec_truth.iloc[:, -1].values.astype(float)
 
 # Plot Shoot Data
@@ -65,7 +65,7 @@ y = label_encoder.fit_transform(y)  # Encoding categorical labels
 
 # Define file paths
 path_hsi = dis+r'\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
-path_truth = dis+ r'\HSI_Root_Rot\Data\Truth3.xlsx'
+path_truth = dis+ r'\HSI_Root_Rot\Data\Truth3_class3.xlsx'
 
 # Read shoot hyperspectral data
 ARR_2024_Shoot = pd.read_excel(path_hsi, sheet_name='ARR_2024_Shoot', header=0)
@@ -227,13 +227,12 @@ print(conf_matrix)
 plt.figure()
 plt.imshow(conf_matrix, cmap='Blues', interpolation='nearest')
 plt.title('Confusion Matrix')
-plt.xlabel('Predicted')
-plt.ylabel('True')
+plt.xlabel('Estimated Root Rot')
+plt.ylabel('Visual Rating')
 plt.colorbar()
 plt.xticks(np.arange(len(label_encoder.classes_)), label_encoder.classes_)
 plt.yticks(np.arange(len(label_encoder.classes_)), label_encoder.classes_)
 plt.show()
-
 
 #%% Calculate Variable Importance in Projection (VIP)
 W0 = pls.x_weights_ / np.sqrt(np.sum(pls.x_weights_ ** 2, axis=0))
