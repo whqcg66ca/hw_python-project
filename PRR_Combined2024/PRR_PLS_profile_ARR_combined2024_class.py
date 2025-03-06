@@ -47,7 +47,7 @@ plt.show()
 
 ###############################################
 # Option 2: Remove invaludate values
-X = dec_2024_root.T
+X = dec_2024_Shoot.T
 X = X[:, :-3]
 y = labe_root
 
@@ -112,7 +112,7 @@ XX_Root = np.vstack([ARR_Root_Cont.to_numpy().T, ARR_Root_Rep1.to_numpy().T, ARR
 YY = ARR_truth.iloc[:, -1].to_numpy()
 
 
-X_Feb = XX_Root 
+X_Feb = XX_Shoot 
 X_Feb = X_Feb[:, :-3]
 y_Feb = YY.astype(float)
 
@@ -146,7 +146,7 @@ print("Combined y shape:", y_combined.shape)
 ##################################################
 # Option -2:  Split the training and test dateset
 # Set random seed for reproducibility
-np.random.seed(50)
+np.random.seed(30)
 # Split data into training and testing sets
 splitRatio = 0.8
 splitIdx = np.random.permutation(len(X_combined ))
@@ -233,6 +233,30 @@ plt.colorbar()
 plt.xticks(np.arange(len(label_encoder.classes_)), ['Low','Moderate', 'High'])
 plt.yticks(np.arange(len(label_encoder.classes_)), ['Low','Moderate', 'High'], rotation=90)
 plt.show()
+
+
+
+# Normalize the confusion matrix to display percentages
+conf_matrix_normalized = conf_matrix.astype('float') / conf_matrix.sum(axis=1)[:, np.newaxis] * 100  # Convert to percentage
+
+plt.figure()
+plt.imshow(conf_matrix, cmap='Blues', interpolation='nearest')
+plt.title('Confusion Matrix')
+plt.xlabel('Estimated Root Rot')
+plt.ylabel('Visual Rating')
+plt.colorbar()
+classes = ['Low', 'Moderate', 'High']
+plt.xticks(np.arange(len(classes)), classes)
+plt.yticks(np.arange(len(classes)), classes, rotation=90)
+
+# Add percentage text annotations
+for i in range(conf_matrix.shape[0]):
+    for j in range(conf_matrix.shape[1]):
+        plt.text(j, i, f'{conf_matrix_normalized[i, j]:.1f}%',
+                 ha='center', va='center', color='black' if conf_matrix_normalized[i, j] < 50 else 'white')
+
+plt.show()
+
 
 #%% Calculate Variable Importance in Projection (VIP)
 W0 = pls.x_weights_ / np.sqrt(np.sum(pls.x_weights_ ** 2, axis=0))
