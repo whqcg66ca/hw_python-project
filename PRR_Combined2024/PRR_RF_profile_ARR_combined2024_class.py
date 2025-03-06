@@ -41,7 +41,7 @@ df_t3 = pd.read_excel(root_hsi, sheet_name='RootR11toR15', header=0).astype(floa
 
 dec_2024_root = np.hstack([df_t1.iloc[:, 1:].values, df_t2.iloc[:, 1:].values, df_t3.iloc[:, 1:].values])
 
-dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2_class3_7.xlsx', sheet_name='Feuil1', header=0)
+dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2_class3.xlsx', sheet_name='Feuil1', header=0)
 labe_shoot = dec_truth.iloc[:, -4].values.astype(float)
 labe_root = dec_truth.iloc[:, -1].values.astype(float)
 

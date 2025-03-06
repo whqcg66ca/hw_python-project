@@ -25,7 +25,7 @@ df_t3 = pd.read_excel(root_hsi, sheet_name='RootR11toR15', header=0).astype(floa
 
 dec_2024_root = np.hstack([df_t1.iloc[:, 1:].values, df_t2.iloc[:, 1:].values, df_t3.iloc[:, 1:].values])
 
-dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2_class3_7.xlsx', sheet_name='Feuil1', header=0)
+dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2_class3.xlsx', sheet_name='Feuil1', header=0)
 labe_shoot = dec_truth.iloc[:, -3].values.astype(float)
 labe_root = dec_truth.iloc[:, -1].values.astype(float)
 
@@ -47,7 +47,7 @@ plt.show()
 
 ###############################################
 # Option 2: Remove invaludate values
-X = dec_2024_Shoot.T
+X = dec_2024_root.T
 X = X[:, :-3]
 y = labe_root
 
@@ -112,7 +112,7 @@ XX_Root = np.vstack([ARR_Root_Cont.to_numpy().T, ARR_Root_Rep1.to_numpy().T, ARR
 YY = ARR_truth.iloc[:, -1].to_numpy()
 
 
-X_Feb = XX_Shoot 
+X_Feb = XX_Root 
 X_Feb = X_Feb[:, :-3]
 y_Feb = YY.astype(float)
 
@@ -230,8 +230,8 @@ plt.title('Confusion Matrix')
 plt.xlabel('Estimated Root Rot')
 plt.ylabel('Visual Rating')
 plt.colorbar()
-plt.xticks(np.arange(len(label_encoder.classes_)), label_encoder.classes_)
-plt.yticks(np.arange(len(label_encoder.classes_)), label_encoder.classes_)
+plt.xticks(np.arange(len(label_encoder.classes_)), ['Low','Moderate', 'High'])
+plt.yticks(np.arange(len(label_encoder.classes_)), ['Low','Moderate', 'High'], rotation=90)
 plt.show()
 
 #%% Calculate Variable Importance in Projection (VIP)
