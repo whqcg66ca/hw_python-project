@@ -59,7 +59,7 @@ y = y[nan_mask]
 
 # Convert labels to categorical (if needed for classification)
 label_encoder = LabelEncoder()
-y_form = label_encoder.fit_transform(y)  # Encoding categorical labels
+y = label_encoder.fit_transform(y)  # Encoding categorical labels
 
 #%% Step 1.2 Read the Feb 2024 data
 
@@ -123,7 +123,7 @@ y_Feb = y_Feb[nan_mask]
 ###############################################
 
 # Convert labels to categorical (if needed for classification)
-# y_Feb = label_encoder.fit_transform(y_Feb)  # Encoding categorical labels
+y_Feb = label_encoder.fit_transform(y_Feb)  # Encoding categorical labels
 
 #%% Step 2: Prprocessing
 # Combine December and February matrices
