@@ -17,6 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import os
+
 # os.environ['PROJ_LIB'] = r'C:\Users\Hongquan\anaconda3\pkgs\proj-6.2.1-h3758d61_0\Library\share\proj'
 os.environ['PROJ_LIB'] = r'C:\Users\WangHongq\Anaconda3\pkgs\proj-6.2.1-h3758d61_0\Library\share\proj'
 
@@ -32,9 +33,9 @@ from osgeo import gdal
 targ='PeaRootRot'  
  # 'leth_mustard', 'leth_oat'
 
-Teget1=glob.glob(r'N:\UAV Data_Lethbridge Projects 2024\UAV Altum PT (MSI Thermal)_Processed\AltumPT_20240704_PeaRootRot (FRR)/'+ r'*'+targ+ r'*'+ r'/4_index/reflectance', recursive = True)
+# Teget1=glob.glob(r'N:\UAV Data_Lethbridge Projects 2024\UAV Altum PT (MSI Thermal)_Processed\AltumPT_20240704_PeaRootRot (FRR)/'+ r'*'+targ+ r'*'+ r'/4_index/reflectance', recursive = True)
 
-# Teget1=glob.glob(r'N:\UAV Data_Lethbridge Projects 2023\Saskatoon UAV Data 2023 (Steve)_Processed\Pix4D\Brown HyperOat 20230610_P\Oat20230610\4_index\reflectance', recursive = True)
+Teget1=glob.glob(r'N:\UAV Data_RSPLab Projects 2025\UAV Altum PT (MSI Thermal)_Processed\AltumPT_20250625_PeaRootRot (FRR)\PRR_20250625\4_index\reflectance', recursive = True)
 #%% Read the bands in a folder
 # file_list= glob.glob(r'C:\Users\Hongquan\Python_test\Test50_June 30\Reflectance30062022\4_index\reflectance\*.tif') 
 
@@ -54,7 +55,7 @@ for datapath in Teget:
     ind=searchpath.find(targ)
   
     add2= searchpath[ind-17:ind+3] # 23BH  23NL
-    datapath2=r'N:\UAV Data_Lethbridge Projects 2024\UAV Altum PT (MSI Thermal)_Processed\Mosaics'
+    datapath2=r'N:\UAV Data_RSPLab Projects 2025\UAV Altum PT (MSI Thermal)_Processed\AltumPT_20250625_PeaRootRot (FRR)'
     # datapath2=r'G:\Lacombe UAV Data_WGRF 2022 (Kelly)_processed'
     savepath=datapath2 +  r'\\' +  add2 + r'.tif'
     
