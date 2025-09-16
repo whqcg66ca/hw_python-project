@@ -37,8 +37,8 @@ Teget1=glob.glob(r'N:\UAV Data_RSPLab Projects 2025\UAV RedEdge P (MSI)_Processe
 #%% Read the bands in a folder
 # file_list= glob.glob(r'C:\Users\Hongquan\Python_test\Test50_June 30\Reflectance30062022\4_index\reflectance\*.tif') 
 
-# Teget=[Teget1[i] for i in [0,1,4,5]]
-Teget=Teget1
+Teget=[Teget1[i] for i in [4,5]]
+# Teget=Teget1
 
 for datapath in Teget:
     print(datapath)
