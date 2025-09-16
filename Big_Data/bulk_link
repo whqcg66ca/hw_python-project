@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+# Minimal: login (auto-detect form) -> collect links on given page -> download files.
+
+import os
+import re
+import sys
+import time
+import urllib.parse as urlparse
+from pathlib import Path
+from typing import Dict, Optional, Tuple, List
+
+import requests
+from bs4 import BeautifulSoup
+
+# ---- Settings you might tweak ----
+ALLOWED_EXTS = {".pdf", ".zip", ".csv", ".xlsx", ".xls", ".doc", ".docx", ".tif", ".tiff", ".png", ".jpg"}  # set() to allow all
+OUT_DIR = Path("downloads")
+TIMEOUT = 30
+SLEEP = 0.2  # polite pause
+
+# ------------- Helpers -------------
+
+def absolute(href: str, base: str) -> str:
+    return urlparse.urljoin(base, href)
+
+def looks_like_file(url: str) -> bool:
+    path = urlparse.urlparse(url).path
+    ext = Path(path).suffix.lower()
+    return ext in ALLOWED_EXTS or (not ALLOWED_EXTS)  # if ALLOWED_EXTS is empty, accept all
+
+def dedupe_keep_order(seq):
+    seen, out = set(), []
+    for x in seq:
+        if x not in seen:
+            out.append(x); seen.add(x)
+    return out
+
+def filename_from_response(resp: requests.Response, fallback_url: str) -> str:
+    cd = resp.headers.get("Content-Disposition", "")
+    # RFC 6266 filename*=
+    m = re.search(r'filename\*=([^\'"]*)\'\'([^;]+)', cd, re.I)
+    if m:
+        return Path(urlparse.unquote(m.group(2))).name
+    # filename=""
+    m = re.search(r'filename="?([^";]+)"?', cd, re.I)
+    if m:
+        return Path(m.group(1)).name
+    # fallback to URL
+    name = Path(urlparse.urlparse(fallback_url).path).name or "download"
+    return name
+
+def ensure_unique(p: Path) -> Path:
+    if not p.exists():
+        return p
+    i = 2
+    while True:
+        alt = p.with_name(f"{p.stem} ({i}){p.suffix}")
+        if not alt.exists():
+            return alt
+        i += 1
+
+# ---------- Login autodetect ---------
+
+def find_login_form(soup: BeautifulSoup) -> Tuple[Optional[str], Dict[str, str], Optional[str], Optional[str]]:
+    """
+    Returns: (action_url or None, hidden_fields, username_field_name, password_field_name)
+    - Picks the first <form> it finds.
+    - Collects hidden inputs.
+    - Guesses username/password input names.
+    """
+    form = soup.find("form")
+    if not form:
+        return (None, {}, None, None)
+
+    # action (could be relative)
+    action = form.get("action") or ""
+    # hidden inputs
+    hidden = {}
+    for inp in form.find_all("input"):
+        name = inp.get("name")
+        itype = (inp.get("type") or "").lower()
+        if not name:
+            continue
+        if itype == "hidden":
+            hidden[name] = inp.get("value", "")
+
+    # guess username/password fields
+    username_field = whqcg66_Canada
+    password_field = RSnlf@112
+
+    # password is easy
+    p = form.find("input", {"type": "password"})
+    if p and p.get("name"):
+        password_field = p.get("name")
+
+    # username/email: try by common names; else first text input
+    candidates = form.find_all("input", {"type": ["text", "email", "username"]})
+    # search by name hints
+    for c in candidates:
+        nm = (c.get("name") or "").lower()
+        if any(k in nm for k in ["user", "login", "email", "username"]):
+            username_field = c.get("name")
+            break
+    if not username_field and candidates:
+        username_field = candidates[0].get("name")
+
+    return (action, hidden, username_field, password_field)
+
+def login_if_needed(sess: requests.Session, target_url: str, username: str, password: str) -> None:
+    """
+    1) GET target_url. If it shows a login form, submit creds (keeping hidden fields).
+    2) Otherwise, do nothing (already public or logged in).
+    """
+    r = sess.get(target_url, timeout=TIMEOUT, allow_redirects=True)
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "lxml")
+
+    action, hidden, uname_field, pass_field = find_login_form(soup)
+
+    # Heuristic: if there's a password field on this page, assume it's a login page
+    if pass_field:
+        # Build payload
+        if not uname_field or not pass_field:
+            raise RuntimeError("Could not detect username/password fields on the login form.")
+        payload = dict(hidden)
+        payload[uname_field] = username
+        payload[pass_field] = password
+
+        # Post to form action (relative to current URL)
+        login_url = urlparse.urljoin(r.url, action or r.url)
+        rp = sess.post(login_url, data=payload, timeout=TIMEOUT, allow_redirects=True)
+        rp.raise_for_status()
+        time.sleep(SLEEP)
+
+        # After login, load the target page again
+        r = sess.get(target_url, timeout=TIMEOUT, allow_redirects=True)
+        r.raise_for_status()
+
+    # else: no login form found; carry on
+    return
+
+# --------- Scrape & download ---------
+
+def extract_links(html_text: str, base_url: str) -> List[str]:
+    soup = BeautifulSoup(html_text, "lxml")
+    links = []
+    for a in soup.select("a[href]"):
+        href = a.get("href", "").strip()
+        if not href or href.startswith("#"):
+            continue
+        full = absolute(href, base_url)
+        if full.lower().startswith(("http://", "https://")) and looks_like_file(full):
+            links.append(full)
+    return dedupe_keep_order(links)
+
+def download_all(sess: requests.Session, links: List[str], out_dir: Path) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for url in links:
+        try:
+            resp = sess.get(url, timeout=TIMEOUT, stream=True)
+            resp.raise_for_status()
+            name = filename_from_response(resp, url)
+            path = ensure_unique(out_dir / name)
+            total = int(resp.headers.get("Content-Length", "0")) or None
+            chunk = 1024 * 64
+            written = 0
+            with open(path, "wb") as f:
+                for part in resp.iter_content(chunk_size=chunk):
+                    if part:
+                        f.write(part)
+                        written += len(part)
+            print(f"[✓] {path.name}  ({written} bytes)")
+            time.sleep(SLEEP)
+        except Exception as e:
+            print(f"[x] {url}  --> {e}")
+
+
+
+
+
+
+
+
+# --------------- Main ----------------
+
+#def main():
+    # if len(sys.argv) != 4:
+    #     print("Usage: python simple_downloader.py <LISTING_URL> <USERNAME> <PASSWORD>")
+    #     sys.exit(1)
+
+    listing_url, username, password = sys.argv[1], sys.argv[2], sys.argv[3]
+    listing_url ="https://data.eodms-sgdot.nrcan-rncan.gc.ca/goc/dnd/iceye/sar/"
+    username ="whqcg66_Canada"
+    password ="RSnlf@112"
+    
+    with requests.Session() as sess:
+        sess.headers.update({"User-Agent": "simple-downloader/0.1"})
+        # 1) login if the listing page shows a login form
+        login_if_needed(sess, listing_url, username, password)
+        # 2) fetch the listing page (now authenticated) and scrape links
+        r = sess.get(listing_url, timeout=TIMEOUT)
+        r.raise_for_status()
+        links = extract_links(r.text, r.url)
+        print(f"Found {len(links)} file link(s). Downloading to: {OUT_DIR.resolve()}")
+        # 3) download
+        download_all(sess, links, OUT_DIR)
+
+#if __name__ == "__main__":
+ #   main()
