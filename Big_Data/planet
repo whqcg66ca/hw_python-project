@@ -1,0 +1,39 @@
+from datetime import datetime
+
+from planet import Planet
+
+from planet.subscription_request import (
+    build_request,
+    planetary_variable_source,
+    sentinel_hub,
+)
+
+pl = Planet()
+
+
+def create_arps_subscription():
+    arps_subscription = build_request(
+        name="Example Analysis-Ready PlanetScope Subscription",
+        source=planetary_variable_source(
+            var_type="analysis_ready_ps",
+            var_id="PS_ARD_SR_DAILY",
+            start_time=datetime.fromisoformat("2025-01-15T00:00:00.0Z"),
+            end_time=datetime.fromisoformat("2025-01-15T00:00:01.0Z"),
+            geometry={
+                "coordinates": [
+                    [
+                        [-122.39334886, 37.79508572],
+                        [-122.41963198, 37.79508572],
+                        [-122.41963198, 37.77362268],
+                        [-122.39334886, 37.77362268],
+                        [-122.39334886, 37.79508572],
+                    ]
+                ],
+                "type": "Polygon",
+            },
+        ),
+        hosting=sentinel_hub(None),
+    )
+    subscription = pl.subscriptions.create_subscription(arps_subscription)
+    return subscription
+    
