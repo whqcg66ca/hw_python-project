@@ -1,0 +1,310 @@
+import numpy as np
+import cv2
+import pandas as pd
+import glob
+from spectral import *
+import spectral.io.envi as envi
+from sklearn.model_selection import train_test_split, cross_val_score
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, accuracy_score
+import matplotlib.pyplot as plt
+import pygal
+
+from sklearn import svm
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis, LinearDiscriminantAnalysis
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.cross_decomposition import PLSRegression
+from sklearn.metrics import r2_score
+from pygal.style import Style
+from imblearn.under_sampling import RandomUnderSampler
+
+filepath_1=r'D:\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_1-radiance-CorrectFromFlatReference.bip.hdr'
+filepath_2=r'D:\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_1-radiance-CorrectFromFlatReference.bip'
+img = envi.open(filepath_1, filepath_2)
+img_shape = (img.shape[0], img.shape[1], img.shape[2])
+print(img_shape)
+
+# Read the band
+band = img.read_band(100).astype(np.float32)
+
+# Contrast stretch for visualization
+def stretch(a):
+    valid = ~np.isnan(a)
+    p2, p98 = np.percentile(a[valid], [2, 98])
+    return np.clip((a - p2) / (p98 - p2 + 1e-6), 0, 1)
+
+band_stretched = stretch(band)
+
+# Plot
+plt.figure(figsize=(6,12))  # taller figure since your image is tall
+plt.imshow(band_stretched, cmap="gray")
+plt.axis("off")
+plt.title("Band 100")
+plt.show()
+
+#%% RGB Show
+
+# Create wavelength array (linear from start to end across 300 bands)
+wavelengths = np.linspace(388.68, 1034.19, 300)
+
+# Pick target wavelengths for RGB
+targets = {'R': 660, 'G': 560, 'B': 480}
+
+# Find nearest band indices
+band_idx = {k: int(np.argmin(np.abs(wavelengths - v))) for k, v in targets.items()}
+print("Chosen band indices:", band_idx)
+
+# Read the bands
+R = img.read_band(band_idx['R']).astype(np.float32)
+G = img.read_band(band_idx['G']).astype(np.float32)
+B = img.read_band(band_idx['B']).astype(np.float32)
+
+# Contrast stretch function
+def stretch(a):
+    valid = ~np.isnan(a)
+    p2, p98 = np.percentile(a[valid], [2, 98])
+    return np.clip((a - p2) / (p98 - p2 + 1e-6), 0, 1)
+
+R, G, B = map(stretch, (R, G, B))
+
+# Stack into RGB image
+rgb = np.dstack([R, G, B])
+
+# ⚡ Show preview (downsampled to speed up)
+preview = rgb[::2, ::2, :]   # take every 20th row, every 2nd column
+plt.figure(figsize=(8,12))
+plt.imshow(preview)
+plt.axis("off")
+plt.title("RGB Composite (~660 nm, 560 nm, 480 nm)")
+plt.show()
+
+
+
+alllabel = []
+allhsi = []
+allnames = []
+hsi_list = []
+label_list = []
+spectral_list = []
+name_list = []
+print('ok')
+
+
+data = text_dataframe(txtfile_path, img_shape)
+
+for i in range(data.shape[0]):
+    label = data['response'][i]
+    print(label)
+    spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
+    for x in range(spectral_file.shape[0]):
+        for y in range(spectral_file.shape[1]):
+            allhsi.append(spectral_file[x,y,:])
+            alllabel.append(label)
+            allnames.append(data['id'][i])
+    spectrum = np.mean(spectral_file, axis=0)
+    spectrum = np.mean(spectrum, axis=0)
+    empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
+    label_list.append(int(label))
+    hsi_list.append(empty_array)
+    spectral_list.append(spectrum)
+    name_list.append(data['id'][i])
+
+
+
+
+
+
+
+# The code includes necessary libraries for numerical operations (numpy), 
+# image processing (cv2), data manipulation (pandas), file handling (glob), 
+# hyperspectral analysis (spectral), machine learning (sklearn), data visualization (seaborn, matplotlib, pygal), and imbalanced data handling (imblearn).
+
+
+
+custom_style = Style(
+  background='transparent',
+  plot_background='transparent',
+  foreground='black',
+  foreground_strong='#53A0E8',
+  foreground_subtle='#630C0D',
+  opacity='.6',
+  opacity_hover='.9',
+    font_family='googlefont:Roboto',
+    label_font_size = 24,
+    major_label_font_size = 24,
+    value_font_size = 24,
+    legend_font_size = 24,
+  transition='400ms ease-in',
+  colors=('#f54242', '#f5b342', '#75f542', '#4842f5', '#c542f5', '#f542bc', '#f54287', '#f54242', '#e9f542'))
+
+
+
+# This function seems to create paths for different data components. It uses a provided path to locate and process files, returning various lists.
+
+def path_creator(path):
+    path_labels = []
+    path_hypercubes = []
+    path_spectra = []
+    path_name = []
+    path_allhsi = []
+    path_alllabel = []
+    path_allnames = []
+    print(path)
+    for file in glob.glob(path + '*.png'):
+        print(file)
+        #RGB Image Extraction 1 After_treatment-/1_DAT*_*.png 2 Before_treatment-
+        refile = file.replace('.PNG', '.txt')
+        refile = refile.replace('.png', '.txt')
+        refile = refile.replace('images', 'labels')
+        #rgb = extract_rgbimg(file, refile)
+
+        #HSI Spectra Extracion
+        spectralfile = file.replace('.PNG', '.bip.hdr')
+        spectralfile = spectralfile.replace('images', 'hsi')
+        spectralfile_1 = spectralfile.replace('.png', '.bip.hdr')
+        spectralfile_2 = spectralfile_1.replace('.bip.hdr', '.bip')
+        spectralinfo = extract_spectra(spectralfile_1, spectralfile_2, refile)
+        path_labels.extend(spectralinfo[0])
+        path_hypercubes.extend(spectralinfo[1])
+        path_spectra.extend(spectralinfo[2])
+        path_name.extend(spectralinfo[3])
+        path_allhsi.extend(spectralinfo[4])
+        path_alllabel.extend(spectralinfo[5])
+        path_allnames.extend(spectralinfo[6])
+    return(path_labels, path_hypercubes, path_spectra, path_name, path_allhsi, path_alllabel, path_allnames)
+
+
+# This function extracts spectral information from hyperspectral images and returns lists containing label, hyperspectral cube, spectra, and name information.
+
+def extract_spectra(filepath_1, filepath_2, txtfile_path):
+    alllabel = []
+    allhsi = []
+    allnames = []
+    hsi_list = []
+    label_list = []
+    spectral_list = []
+    name_list = []
+    empty_array = np.zeros((500, 500, 300))
+    img = envi.open(filepath_1, filepath_2)
+    img_shape = (img.shape[0], img.shape[1])
+    print(img_shape)
+    data = text_dataframe(txtfile_path, img_shape)
+    for i in range(data.shape[0]):
+        label = data['response'][i]
+        print(label)
+        spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
+        for x in range(spectral_file.shape[0]):
+            for y in range(spectral_file.shape[1]):
+                allhsi.append(spectral_file[x,y,:])
+                alllabel.append(label)
+                allnames.append(data['id'][i])
+        spectrum = np.mean(spectral_file, axis=0)
+        spectrum = np.mean(spectrum, axis=0)
+        empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
+        label_list.append(int(label))
+        hsi_list.append(empty_array)
+        spectral_list.append(spectrum)
+        name_list.append(data['id'][i])
+    return(label_list, hsi_list, spectral_list, name_list, allhsi, alllabel, allnames)
+
+
+# This function appears to extract RGB images from a given path and text file, saving cropped images.
+def extract_rgbimg(img_path, txt_path):
+    img = cv2.imread(img_path)
+    img_shape = img.shape
+    data = text_dataframe(txt_path, img_shape)
+    for i in range(data.shape[0]):
+        crop_img_rgb = img[data['y0'][i]:data['y1'][i], data['x0'][i]:data['x1'][i]]
+        cv2.imwrite(output_path + '_' + str(i) + '_class_' + str(data['class'][i]) + '.jpg', crop_img_rgb)
+        print(crop_img_rgb.shape)
+
+
+# This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
+def text_dataframe(file_path, img_shape):
+    classes = np.genfromtxt('N:/03 NUE JohnDeere Project 2023-24/Codes/jdtrial_data/classes.txt', delimiter=' ')
+    d = pd.read_csv(file_path, sep=' ',names=['class','x','y','width','height','x0','x1','y0','y1','id', 'class_name']).fillna('NaN')
+    d['class_name'] = classes[d['class']].astype(int)
+    d['x0'] = np.round(img_shape[1]*(d['x']-(d['width']/2))).astype(int)
+    d['x1'] = np.round(img_shape[1]*(d['x']+(d['width']/2))).astype(int)
+    d['y0'] = np.round(img_shape[0]*(d['y']-(d['height']/2))).astype(int)
+    d['y1'] = np.round(img_shape[0]*(d['y']+(d['height']/2))).astype(int)
+    string = file_path.split("/")[-1]
+    id = string.split('.')[0]
+    id = id.split('_')[-1]
+    id = id.split('_')[-1]
+    for index in range(d.shape[0]):
+        d['id'] = id
+    d2 = pd.read_csv('N:/03 NUE JohnDeere Project 2023-24/Codes/jdtrial_data/input.csv', names=['class_name', 'response']).fillna('NaN')
+    d1 = pd.merge(d, d2, on='class_name', how='inner')
+    print(d1)
+    d1.to_csv(output_path+'dataframe.csv', index = False)
+    return(d1)
+
+
+# The main code seems to use the above functions to process hyperspectral images, 
+# extract features, and apply PLS regression for different numbers of components. Results are then saved to a CSV file.
+
+image_path = r'N:/03 NUE JohnDeere Project 2023-24/Codes/jdtrial_data/images/'
+output_path = r'N:/03 NUE JohnDeere Project 2023-24/Codes/jdtrial_data/output2/'
+labels, hypercubes, spectra, names, allhsis, alllabelss, allnames = path_creator(image_path)
+
+labels = np.array(alllabelss)
+hsi = np.array(hypercubes)
+spectra = np.array(allhsis)
+names = np.array(names)
+allnames = np.array(allnames)
+
+X = spectra
+Y = labels
+Z = allnames
+
+print(X.shape)
+print(Y.shape)
+
+'''
+rus = RandomUnderSampler(random_state=0)
+X_resampled, Y_resampled = rus.fit_resample(X, Y)
+
+print(X_resampled.shape)
+print(Y_resampled.shape)
+'''
+n_train_r2_mean = []
+n_test_r2_mean = []
+n_train_r2_std = []    
+n_test_r2_std = []
+n_list = []
+
+for n in range (1, 5, 1):
+    #PLS model specs
+    plsmodel = PLSRegression(n_components = n, max_iter=1000)
+    
+    trainscores_list = []
+    testscores_list = []
+    
+    #K-Fold cross validation
+    for i in range(2):
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, shuffle=True)
+        trainscores = cross_val_score(plsmodel, X_train, Y_train, cv=5, scoring='r2')
+        pls = plsmodel.fit(X_train, Y_train)
+        Y_pred = pls.predict(X_test)
+        testscores = r2_score(Y_test, np.reshape(Y_pred, (len(Y_pred))))
+        trainscores_list.append(trainscores)
+        testscores_list.append(testscores)
+        
+    print("Number of components : " + str(n))
+    print("Training Stats")
+    print("R2 mean: "+str(np.mean(trainscores_list)*100))
+    print("R2 std: "+str(np.std(trainscores_list)*100))
+    print("Test Stats")
+    print("R2 mean: "+str(np.mean(testscores_list)*100))
+    print("R2 std: "+str(np.std(testscores_list)*100))
+    n_train_r2_mean.append(np.mean(trainscores_list)*100)
+    n_test_r2_mean.append(np.mean(testscores_list)*100)
+    n_train_r2_std.append(np.std(trainscores_list)*100)    
+    n_test_r2_std.append(np.std(testscores_list)*100)
+    n_list.append(n)
+    
+    
+df = pd.DataFrame(list(zip(n_list, n_train_r2_mean, n_train_r2_std, n_test_r2_mean, n_test_r2_std)), columns =['Number of Components','Train Mean', 'Train STD', 'Test Mean', 'Train STD'])
+df.to_csv('N:/03 NUE JohnDeere Project 2023-24/Codes/jdtrial_data/output2/Results.csv', index=False)
