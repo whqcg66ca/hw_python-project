@@ -29,10 +29,13 @@ from osgeo import gdal
 # import geopandas as gpd
 #import sys
 
-targ='NUEWheat'  
+import sys
+print(sys.executable)
+
+targ='NUECanola'  
  # 'leth_mustard', 'leth_oat'
 
-Teget1=glob.glob(r'N:\UAV Data_RSPLab Projects 2025\UAV RedEdge P (MSI)_Processed\RedEdgeP_20250903_NUEWheatAAFC (70DAT)\Wheat_20250903\4_index\reflectance', recursive = True)
+Teget1=glob.glob(r'N:\UAV Data_RSPLab Projects 2025\UAV RedEdge P (MSI)_Processed\Pix4D\RedEdgeP_20250625_NUECanolaAAFC (BL)\Canola20250625\4_index\reflectance', recursive = True)
 #Teget1=glob.glob(r'N:\UAV Data_RSPLab Projects 2025\UAV RedEdge P (MSI)_Processed/' + r'*'+targ+ r'*'+ r'/*/4_index/reflectance', recursive = True)
 #%% Read the bands in a folder
 # file_list= glob.glob(r'C:\Users\Hongquan\Python_test\Test50_June 30\Reflectance30062022\4_index\reflectance\*.tif') 
@@ -53,7 +56,7 @@ for datapath in Teget:
     
     ind=searchpath.find(targ)
   
-    add2= searchpath[ind-17:ind+3] #23JD, 15LT 19OML 20sw
+    add2= searchpath[ind-17:ind+5] #23JD, 15LT 19OML 20sw
     datapath2=r'N:\UAV Data_RSPLab Projects 2025\UAV RedEdge P (MSI)_Processed\Mosaic\tmp'
     # datapath2=r'G:\Lacombe UAV Data_WGRF 2022 (Kelly)_processed'
     savepath=datapath2 +  r'\\' +  add2 + r'.tif'
