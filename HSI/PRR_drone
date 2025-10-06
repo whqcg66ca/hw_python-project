@@ -1,83 +1,225 @@
 import numpy as np
-import cv2
 import pandas as pd
 import glob
 from spectral import *
 import spectral.io.envi as envi
 from sklearn.model_selection import train_test_split, cross_val_score
-import seaborn as sns
 from sklearn.metrics import confusion_matrix, accuracy_score
 import matplotlib.pyplot as plt
-import pygal
-
-from sklearn import svmpy
+from sklearn import svm
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis, LinearDiscriminantAnalysis
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.metrics import r2_score
-from pygal.style import Style
-from imblearn.under_sampling import RandomUnderSampler
 
-filepath_1=r'D:\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_1-radiance-CorrectFromFlatReference.bip.hdr'
-filepath_2=r'D:\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_1-radiance-CorrectFromFlatReference.bip'
+#import cv2
+#import pygal
+#import seaborn as sns
+#from pygal.style import Style
+#from imblearn.under_sampling import RandomUnderSampler
+
+disk='G:'
+
+#%% Read HSI path1
+filepath_1=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_1-radiance-CorrectFromFlatReference.bip.hdr'
+filepath_2=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_1-radiance-CorrectFromFlatReference.bip'
+
+# 1) Open ENVI image (memory-mapped; no full load)
 img = envi.open(filepath_1, filepath_2)
 img_shape = (img.shape[0], img.shape[1], img.shape[2])
 print(img_shape)
 
-# Read the band
-band = img.read_band(100).astype(np.float32)
+# 2) Get wavelengths if present
+wavelengths = np.array([float(w) for w in img.metadata.get('wavelength', [])])  
 
-# Contrast stretch for visualization
-def stretch(a):
-    valid = ~np.isnan(a)
-    p2, p98 = np.percentile(a[valid], [2, 98])
-    return np.clip((a - p2) / (p98 - p2 + 1e-6), 0, 1)
+# Helper: find band closest to a wavelength (nm)
+def band_at(wl_nm):
+    idx = (np.abs(wavelengths - wl_nm)).argmin()
+    return int(idx)
 
-band_stretched = stretch(band)
+# 3) Choose RGB bands (approx true color)
+r_idx = band_at(650)   # Red ~ 650 nm
+g_idx = band_at(560)   # Green ~ 560 nm
+b_idx = band_at(470)   # Blue ~ 470 nm
 
-# Plot
-plt.figure(figsize=(6,12))  # taller figure since your image is tall
-plt.imshow(band_stretched, cmap="gray")
-plt.axis("off")
-plt.title("Band 100")
+# Lazy slices; load only when needed
+R = img[:,:,r_idx].astype(np.float32)
+G = img[:,:,g_idx].astype(np.float32)
+B = img[:,:,b_idx].astype(np.float32)
+
+# 4) Simple percentile stretch for display
+def stretch_2_98(x):
+    lo, hi = np.percentile(x, [2, 98])
+    x = np.clip((x - lo) / (hi - lo + 1e-6), 0, 1)
+    return x
+
+RGB = np.dstack([stretch_2_98(R), stretch_2_98(G), stretch_2_98(B)])
+
+plt.figure(figsize=(8,8))
+plt.imshow(RGB)
+plt.title("ENVI RGB composite")
+plt.axis('off')
 plt.show()
 
-#%% RGB Show
-
-# Create wavelength array (linear from start to end across 300 bands)
-wavelengths = np.linspace(388.68, 1034.19, 300)
-
-# Pick target wavelengths for RGB
-targets = {'R': 660, 'G': 560, 'B': 480}
-
-# Find nearest band indices
-band_idx = {k: int(np.argmin(np.abs(wavelengths - v))) for k, v in targets.items()}
-print("Chosen band indices:", band_idx)
-
-# Read the bands
-R = img.read_band(band_idx['R']).astype(np.float32)
-G = img.read_band(band_idx['G']).astype(np.float32)
-B = img.read_band(band_idx['B']).astype(np.float32)
-
-# Contrast stretch function
-def stretch(a):
-    valid = ~np.isnan(a)
-    p2, p98 = np.percentile(a[valid], [2, 98])
-    return np.clip((a - p2) / (p98 - p2 + 1e-6), 0, 1)
-
-R, G, B = map(stretch, (R, G, B))
-
-# Stack into RGB image
-rgb = np.dstack([R, G, B])
-
-# ⚡ Show preview (downsampled to speed up)
-preview = rgb[::2, ::2, :]   # take every 20th row, every 2nd column
-plt.figure(figsize=(8,12))
-plt.imshow(preview)
-plt.axis("off")
-plt.title("RGB Composite (~660 nm, 560 nm, 480 nm)")
+# 5) Show a single band (e.g., band 100)
+band_idx = 99  # zero-based
+band = img[:,:,band_idx].astype(np.float32)
+plt.figure(figsize=(7,6))
+plt.imshow(stretch_2_98(band), cmap='gray')
+plt.title(f"Band {band_idx+1}")
+plt.axis('off')
 plt.show()
+
+#%% Extract the polt average for path 1
+
+# This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
+classes = np.genfromtxt(r'G:\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path1\classes.txt', delimiter=' ')
+lbpath=r'G:\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path1\labels\146bbdb2-PeasRootRotHSI2024_Pika_L_New_1.txt'
+output_path=r'G:\2_HSI_Root_Rot\Data_Drone\Output'
+
+d = pd.read_csv(lbpath, sep=' ',names=['class','x','y','width','height','x0','x1','y0','y1','id', 'class_name']).fillna('NaN')
+
+d['class_name'] = classes[d['class']].astype(int)
+d['x0'] = np.round(img_shape[1]*(d['x']-(d['width']/2))).astype(int)
+d['x1'] = np.round(img_shape[1]*(d['x']+(d['width']/2))).astype(int)
+d['y0'] = np.round(img_shape[0]*(d['y']-(d['height']/2))).astype(int)
+d['y1'] = np.round(img_shape[0]*(d['y']+(d['height']/2))).astype(int)
+
+string = lbpath.split("\\")[-1]
+id = string.split('.')[0]
+id = id.split('_')[-1]
+id = id.split('_')[-1]
+for index in range(d.shape[0]):
+    d['id'] = id
+
+d_path1=d
+
+#d2 = pd.read_csv(r'G:\2_HSI_Root_Rot\Data_Drone\Rating_Protocol\2024 disease nursery map and disease ratings_CV_used2.csv',  header=0, names=['class_name', 'response']).fillna('NaN')
+#d1 = pd.merge(d, d2, on='class_name', how='inner')
+#print(d1)
+#d1.to_csv(output_path+'\dataframe1.csv', index = False)
+
+
+#%% Read HSI path2
+filepath_1=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_2-radiance-CorrectFromFlatReference.bip.hdr'
+filepath_2=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_2-radiance-CorrectFromFlatReference.bip'
+
+# 1) Open ENVI image (memory-mapped; no full load)
+img = envi.open(filepath_1, filepath_2)
+img_shape = (img.shape[0], img.shape[1], img.shape[2])
+print(img_shape)
+
+# 2) Get wavelengths if present
+wavelengths = np.array([float(w) for w in img.metadata.get('wavelength', [])])  
+
+# Helper: find band closest to a wavelength (nm)
+def band_at(wl_nm):
+    idx = (np.abs(wavelengths - wl_nm)).argmin()
+    return int(idx)
+
+# 3) Choose RGB bands (approx true color)
+r_idx = band_at(650)   # Red ~ 650 nm
+g_idx = band_at(560)   # Green ~ 560 nm
+b_idx = band_at(470)   # Blue ~ 470 nm
+
+# Lazy slices; load only when needed
+R = img[:,:,r_idx].astype(np.float32)
+G = img[:,:,g_idx].astype(np.float32)
+B = img[:,:,b_idx].astype(np.float32)
+
+# 4) Simple percentile stretch for display
+def stretch_2_98(x):
+    lo, hi = np.percentile(x, [2, 98])
+    x = np.clip((x - lo) / (hi - lo + 1e-6), 0, 1)
+    return x
+
+RGB = np.dstack([stretch_2_98(R), stretch_2_98(G), stretch_2_98(B)])
+
+plt.figure(figsize=(8,8))
+plt.imshow(RGB)
+plt.title("ENVI RGB composite")
+plt.axis('off')
+plt.show()
+
+# 5) Show a single band (e.g., band 100)
+band_idx = 99  # zero-based
+band = img[:,:,band_idx].astype(np.float32)
+plt.figure(figsize=(7,6))
+plt.imshow(stretch_2_98(band), cmap='gray')
+plt.title(f"Band {band_idx+1}")
+plt.axis('off')
+plt.show()
+
+
+#%% Extract the polt average for path 2
+
+# This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
+classes = np.genfromtxt(r'G:\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path2\classes.txt', delimiter=' ')
+lbpath=r'G:\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path2\labels\6d1b507a-PeasRootRotHSI2024_Pika_L_2.txt'
+output_path=r'G:\2_HSI_Root_Rot\Data_Drone\Output'
+
+d = pd.read_csv(lbpath, sep=' ',names=['class','x','y','width','height','x0','x1','y0','y1','id', 'class_name']).fillna('NaN')
+
+d['class_name'] = classes[d['class']].astype(int)
+d['x0'] = np.round(img_shape[1]*(d['x']-(d['width']/2))).astype(int)
+d['x1'] = np.round(img_shape[1]*(d['x']+(d['width']/2))).astype(int)
+d['y0'] = np.round(img_shape[0]*(d['y']-(d['height']/2))).astype(int)
+d['y1'] = np.round(img_shape[0]*(d['y']+(d['height']/2))).astype(int)
+
+string = lbpath.split("\\")[-1]
+id = string.split('.')[0]
+id = id.split('_')[-1]
+id = id.split('_')[-1]
+for index in range(d.shape[0]):
+    d['id'] = id
+
+d_path2=d
+
+d_combine=pd.concat([d_path1, d_path2], ignore_index=True)
+
+d2 = pd.read_csv(r'G:\2_HSI_Root_Rot\Data_Drone\Rating_Protocol\2024 disease nursery map and disease ratings_CV_used2.csv',  header=0, names=['class_name', 'response']).fillna('NaN')
+d1 = pd.merge(d_combine, d2, on='class_name', how='inner')
+print(d1)
+
+d1.to_csv(output_path+'\dataframe1.csv', index = False)
+
+
+#%% This function extracts spectral information from hyperspectral images and returns lists containing label, hyperspectral cube, spectra, and name information.
+
+def extract_spectra(filepath_1, filepath_2, txtfile_path):
+    alllabel = []
+    allhsi = []
+    allnames = []
+    hsi_list = []
+    label_list = []
+    spectral_list = []
+    name_list = []
+    empty_array = np.zeros((500, 500, 300))
+    img = envi.open(filepath_1, filepath_2)
+    img_shape = (img.shape[0], img.shape[1])
+    print(img_shape)
+    data = text_dataframe(txtfile_path, img_shape)
+    for i in range(data.shape[0]):
+        label = data['response'][i]
+        print(label)
+        spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
+        for x in range(spectral_file.shape[0]):
+            for y in range(spectral_file.shape[1]):
+                allhsi.append(spectral_file[x,y,:])
+                alllabel.append(label)
+                allnames.append(data['id'][i])
+        spectrum = np.mean(spectral_file, axis=0)
+        spectrum = np.mean(spectrum, axis=0)
+        empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
+        label_list.append(int(label))
+        hsi_list.append(empty_array)
+        spectral_list.append(spectrum)
+        name_list.append(data['id'][i])
+    return(label_list, hsi_list, spectral_list, name_list, allhsi, alllabel, allnames)
+
+
+
 
 
 
