@@ -21,7 +21,7 @@ from sklearn.metrics import r2_score
 
 disk='G:'
 
-#%% Read HSI path1
+#%% Read HSI imagery for path1
 filepath_1=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_1-radiance-CorrectFromFlatReference.bip.hdr'
 filepath_2=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_1-radiance-CorrectFromFlatReference.bip'
 
@@ -101,6 +101,44 @@ d_path1=d
 #d1.to_csv(output_path+'\dataframe1.csv', index = False)
 
 
+#def extract_spectra(filepath_1, filepath_2, txtfile_path):
+alllabel = []
+allhsi = []
+allnames = []
+hsi_list = []
+label_list = []
+spectral_list = []
+name_list = []
+
+empty_array = np.zeros((500, 500, 300))
+#img = envi.open(filepath_1, filepath_2)
+#img_shape = (img.shape[0], img.shape[1])
+#print(img_shape)
+data = d_path1
+
+
+for i in range(data.shape[0]):
+    #label = data['response'][i]
+    print(i)
+    spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
+
+    for x in range(spectral_file.shape[0]):
+        for y in range(spectral_file.shape[1]):
+            allhsi.append(spectral_file[x,y,:])
+            #alllabel.append(label)
+            allnames.append(data['id'][i])
+    
+    spectrum = np.mean(spectral_file, axis=0)
+    spectrum = np.mean(spectrum, axis=0)
+    empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
+    
+    #label_list.append(int(label))
+    hsi_list.append(empty_array)
+    spectral_list.append(spectrum)
+    name_list.append(data['id'][i])
+    #return(label_list, hsi_list, spectral_list, name_list, allhsi, alllabel, allnames)
+
+
 #%% Read HSI path2
 filepath_1=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_2-radiance-CorrectFromFlatReference.bip.hdr'
 filepath_2=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_2-radiance-CorrectFromFlatReference.bip'
@@ -151,7 +189,6 @@ plt.title(f"Band {band_idx+1}")
 plt.axis('off')
 plt.show()
 
-
 #%% Extract the polt average for path 2
 
 # This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
@@ -187,36 +224,37 @@ d1.to_csv(output_path+'\dataframe1.csv', index = False)
 
 #%% This function extracts spectral information from hyperspectral images and returns lists containing label, hyperspectral cube, spectra, and name information.
 
-def extract_spectra(filepath_1, filepath_2, txtfile_path):
-    alllabel = []
-    allhsi = []
-    allnames = []
-    hsi_list = []
-    label_list = []
-    spectral_list = []
-    name_list = []
-    empty_array = np.zeros((500, 500, 300))
-    img = envi.open(filepath_1, filepath_2)
-    img_shape = (img.shape[0], img.shape[1])
-    print(img_shape)
-    data = text_dataframe(txtfile_path, img_shape)
-    for i in range(data.shape[0]):
-        label = data['response'][i]
-        print(label)
-        spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
-        for x in range(spectral_file.shape[0]):
-            for y in range(spectral_file.shape[1]):
-                allhsi.append(spectral_file[x,y,:])
-                alllabel.append(label)
-                allnames.append(data['id'][i])
-        spectrum = np.mean(spectral_file, axis=0)
-        spectrum = np.mean(spectrum, axis=0)
-        empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
-        label_list.append(int(label))
-        hsi_list.append(empty_array)
-        spectral_list.append(spectrum)
-        name_list.append(data['id'][i])
-    return(label_list, hsi_list, spectral_list, name_list, allhsi, alllabel, allnames)
+#def extract_spectra(filepath_1, filepath_2, txtfile_path):
+alllabel = []
+allhsi = []
+allnames = []
+hsi_list = []
+label_list = []
+spectral_list = []
+name_list = []
+
+empty_array = np.zeros((500, 500, 300))
+img = envi.open(filepath_1, filepath_2)
+img_shape = (img.shape[0], img.shape[1])
+print(img_shape)
+data = text_dataframe(txtfile_path, img_shape)
+for i in range(data.shape[0]):
+    label = data['response'][i]
+    print(label)
+    spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
+    for x in range(spectral_file.shape[0]):
+        for y in range(spectral_file.shape[1]):
+            allhsi.append(spectral_file[x,y,:])
+            alllabel.append(label)
+            allnames.append(data['id'][i])
+    spectrum = np.mean(spectral_file, axis=0)
+    spectrum = np.mean(spectrum, axis=0)
+    empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
+    label_list.append(int(label))
+    hsi_list.append(empty_array)
+    spectral_list.append(spectrum)
+    name_list.append(data['id'][i])
+    #return(label_list, hsi_list, spectral_list, name_list, allhsi, alllabel, allnames)
 
 
 
