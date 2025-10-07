@@ -11,7 +11,7 @@ from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis, LinearD
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.cross_decomposition import PLSRegression
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error,  mean_absolute_error
 
 #import cv2
 #import pygal
@@ -21,7 +21,7 @@ from sklearn.metrics import r2_score
 
 disk='D:'
 
-#%% Read HSI imagery for path1
+#%% Step 1: Read HSI imagery for path1
 filepath_1=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_1-radiance-CorrectFromFlatReference.bip.hdr'
 filepath_2=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_1-radiance-CorrectFromFlatReference.bip'
 
@@ -71,7 +71,7 @@ plt.title(f"Band {band_idx+1}")
 plt.axis('off')
 plt.show()
 
-#%% Extract the polt average for path 1
+#%% Step 2: Extract the polt average for path 1
 
 # This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
 classes = np.genfromtxt(disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path1\classes.txt', delimiter=' ')
@@ -95,18 +95,14 @@ for index in range(d.shape[0]):
 
 d_path1=d
 
-#d2 = pd.read_csv(r'G:\2_HSI_Root_Rot\Data_Drone\Rating_Protocol\2024 disease nursery map and disease ratings_CV_used2.csv',  header=0, names=['class_name', 'response']).fillna('NaN')
-#d1 = pd.merge(d, d2, on='class_name', how='inner')
-#print(d1)
-#d1.to_csv(output_path+'\dataframe1.csv', index = False)
 
 
 #def extract_spectra(filepath_1, filepath_2, txtfile_path):
-alllabel = []
+#alllabel = []
+#label_list = []
 allhsi = []
 allnames = []
 hsi_list = []
-label_list = []
 spectral_list = []
 name_list = []
 
@@ -137,9 +133,23 @@ for i in range(data.shape[0]):
     spectral_list.append(spectrum)
     name_list.append(data['id'][i])
     #return(label_list, hsi_list, spectral_list, name_list, allhsi, alllabel, allnames)
+    
+#df = pd.DataFrame(spectral_list,columns=wavelengths)
+#df.insert(0, 'class_name', data['class_name'])   # add as first column
+#df.to_csv(output_path+r'\spectral_avg11.csv', index=False)
+  
 
+  # --- Build DataFrame and put class_name first ---
+df = pd.DataFrame(spectral_list, columns=wavelengths)
+# Align class_name rows with spectra we kept
+df.insert(0, 'class_name', d.loc[:len(df)-1, 'class_name'].to_list())
+df.insert(1, 'id', name_list)
 
-#%% Read HSI path2
+# Save
+df.to_csv(output_path + r'\spectral_avg11.csv', index=False)
+
+#%% Step 3: Read HSI path2
+disk='D:'
 filepath_1=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_2-radiance-CorrectFromFlatReference.bip.hdr'
 filepath_2=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_2-radiance-CorrectFromFlatReference.bip'
 
@@ -192,9 +202,9 @@ plt.show()
 #%% Extract the polt average for path 2
 
 # This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
-classes = np.genfromtxt(r'G:\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path2\classes.txt', delimiter=' ')
-lbpath=r'G:\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path2\labels\6d1b507a-PeasRootRotHSI2024_Pika_L_2.txt'
-output_path=r'G:\2_HSI_Root_Rot\Data_Drone\Output'
+classes = np.genfromtxt(disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path2\classes.txt', delimiter=' ')
+lbpath=disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path2\labels\6d1b507a-PeasRootRotHSI2024_Pika_L_2.txt'
+output_path=disk+r'\2_HSI_Root_Rot\Data_Drone\Output'
 
 d = pd.read_csv(lbpath, sep=' ',names=['class','x','y','width','height','x0','x1','y0','y1','id', 'class_name']).fillna('NaN')
 
@@ -213,86 +223,91 @@ for index in range(d.shape[0]):
 
 d_path2=d
 
-d_combine=pd.concat([d_path1, d_path2], ignore_index=True)
-
-d2 = pd.read_csv(r'G:\2_HSI_Root_Rot\Data_Drone\Rating_Protocol\2024 disease nursery map and disease ratings_CV_used2.csv',  header=0, names=['class_name', 'response']).fillna('NaN')
-d1 = pd.merge(d_combine, d2, on='class_name', how='inner')
-print(d1)
-
-d1.to_csv(output_path+'\dataframe1.csv', index = False)
-
-
-#%% This function extracts spectral information from hyperspectral images and returns lists containing label, hyperspectral cube, spectra, and name information.
-
 #def extract_spectra(filepath_1, filepath_2, txtfile_path):
-alllabel = []
+#alllabel = []
+#label_list = []
 allhsi = []
 allnames = []
 hsi_list = []
-label_list = []
 spectral_list = []
 name_list = []
 
-empty_array = np.zeros((500, 500, 300))
-img = envi.open(filepath_1, filepath_2)
-img_shape = (img.shape[0], img.shape[1])
-print(img_shape)
-data = text_dataframe(txtfile_path, img_shape)
+empty_array = np.zeros((600, 600, 300))
+#img = envi.open(filepath_1, filepath_2)
+#img_shape = (img.shape[0], img.shape[1])
+#print(img_shape)
+data = d_path2
+
+
 for i in range(data.shape[0]):
-    label = data['response'][i]
-    print(label)
+    #label = data['response'][i]
+    print(i)
     spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
+
     for x in range(spectral_file.shape[0]):
         for y in range(spectral_file.shape[1]):
             allhsi.append(spectral_file[x,y,:])
-            alllabel.append(label)
+            #alllabel.append(label)
             allnames.append(data['id'][i])
+    
     spectrum = np.mean(spectral_file, axis=0)
     spectrum = np.mean(spectrum, axis=0)
     empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
-    label_list.append(int(label))
+    
+    #label_list.append(int(label))
     hsi_list.append(empty_array)
     spectral_list.append(spectrum)
     name_list.append(data['id'][i])
     #return(label_list, hsi_list, spectral_list, name_list, allhsi, alllabel, allnames)
+    
+#df = pd.DataFrame(spectral_list,columns=wavelengths)
+#df.insert(0, 'class_name', data['class_name'])   # add as first column
+#df.to_csv(output_path+r'\spectral_avg11.csv', index=False)
+  
+
+  # --- Build DataFrame and put class_name first ---
+df2 = pd.DataFrame(spectral_list, columns=wavelengths)
+# Align class_name rows with spectra we kept
+df2.insert(0, 'class_name', d.loc[:len(df2)-1, 'class_name'].to_list())
+df2.insert(1, 'id', name_list)
+
+# Save
+df2.to_csv(output_path + r'\spectral_avg2.csv', index=False)
 
 
+#%% Step5: Combine path1 and path2
+
+# Replace with your actual file paths
+file1 =disk+ r"\2_HSI_Root_Rot\Data_Drone\Output\spectral_avg1.csv"
+file2 =disk+ r"\2_HSI_Root_Rot\Data_Drone\Output\spectral_avg2.csv"
+
+# Read the CSVs
+df1 = pd.read_csv(file1)
+df2 = pd.read_csv(file2)
+
+# Print summary information
+print("=== File 1 ===")
+print(df1.head(), "\n")
+print("Shape:", df1.shape)
+
+print("\n=== File 2 ===")
+print(df2.head(), "\n")
+print("Shape:", df2.shape)
+
+# Example: merge or concatenate if they share same structure
+d_combine = pd.concat([df1, df2], ignore_index=True)
+print("\n=== Combined ===")
+print(d_combine.head())
+print("Combined shape:", d_combine.shape)
+# Save
+d_combine.to_csv(output_path + r'\spectral_avg_com.csv', index=False)
 
 
+d2 = pd.read_csv(disk+r'\2_HSI_Root_Rot\Data_Drone\Rating_Protocol\2024 disease nursery map and disease ratings_CV_used2.csv',  header=0, names=['class_name', 'response']).fillna('NaN')
+d1 = pd.merge(d_combine, d2, on='class_name', how='inner')
+print(d1)
 
-
-alllabel = []
-allhsi = []
-allnames = []
-hsi_list = []
-label_list = []
-spectral_list = []
-name_list = []
-print('ok')
-
-
-data = text_dataframe(txtfile_path, img_shape)
-
-for i in range(data.shape[0]):
-    label = data['response'][i]
-    print(label)
-    spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
-    for x in range(spectral_file.shape[0]):
-        for y in range(spectral_file.shape[1]):
-            allhsi.append(spectral_file[x,y,:])
-            alllabel.append(label)
-            allnames.append(data['id'][i])
-    spectrum = np.mean(spectral_file, axis=0)
-    spectrum = np.mean(spectrum, axis=0)
-    empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
-    label_list.append(int(label))
-    hsi_list.append(empty_array)
-    spectral_list.append(spectrum)
-    name_list.append(data['id'][i])
-
-
-
-
+d1.to_csv(output_path+'\dataframe_final.csv', index = False)
 
 
 
@@ -302,160 +317,48 @@ for i in range(data.shape[0]):
 
 
 
-custom_style = Style(
-  background='transparent',
-  plot_background='transparent',
-  foreground='black',
-  foreground_strong='#53A0E8',
-  foreground_subtle='#630C0D',
-  opacity='.6',
-  opacity_hover='.9',
-    font_family='googlefont:Roboto',
-    label_font_size = 24,
-    major_label_font_size = 24,
-    value_font_size = 24,
-    legend_font_size = 24,
-  transition='400ms ease-in',
-  colors=('#f54242', '#f5b342', '#75f542', '#4842f5', '#c542f5', '#f542bc', '#f54287', '#f54242', '#e9f542'))
+# custom_style = Style(
+#   background='transparent',
+#   plot_background='transparent',
+#   foreground='black',
+#   foreground_strong='#53A0E8',
+#   foreground_subtle='#630C0D',
+#   opacity='.6',
+#   opacity_hover='.9',
+#     font_family='googlefont:Roboto',
+#     label_font_size = 24,
+#     major_label_font_size = 24,
+#     value_font_size = 24,
+#     legend_font_size = 24,
+#   transition='400ms ease-in',
+#   colors=('#f54242', '#f5b342', '#75f542', '#4842f5', '#c542f5', '#f542bc', '#f54287', '#f54242', '#e9f542'))
 
 
-
-# This function seems to create paths for different data components. It uses a provided path to locate and process files, returning various lists.
-
-def path_creator(path):
-    path_labels = []
-    path_hypercubes = []
-    path_spectra = []
-    path_name = []
-    path_allhsi = []
-    path_alllabel = []
-    path_allnames = []
-    print(path)
-    for file in glob.glob(path + '*.png'):
-        print(file)
-        #RGB Image Extraction 1 After_treatment-/1_DAT*_*.png 2 Before_treatment-
-        refile = file.replace('.PNG', '.txt')
-        refile = refile.replace('.png', '.txt')
-        refile = refile.replace('images', 'labels')
-        #rgb = extract_rgbimg(file, refile)
-
-        #HSI Spectra Extracion
-        spectralfile = file.replace('.PNG', '.bip.hdr')
-        spectralfile = spectralfile.replace('images', 'hsi')
-        spectralfile_1 = spectralfile.replace('.png', '.bip.hdr')
-        spectralfile_2 = spectralfile_1.replace('.bip.hdr', '.bip')
-        spectralinfo = extract_spectra(spectralfile_1, spectralfile_2, refile)
-        path_labels.extend(spectralinfo[0])
-        path_hypercubes.extend(spectralinfo[1])
-        path_spectra.extend(spectralinfo[2])
-        path_name.extend(spectralinfo[3])
-        path_allhsi.extend(spectralinfo[4])
-        path_alllabel.extend(spectralinfo[5])
-        path_allnames.extend(spectralinfo[6])
-    return(path_labels, path_hypercubes, path_spectra, path_name, path_allhsi, path_alllabel, path_allnames)
-
-
-# This function extracts spectral information from hyperspectral images and returns lists containing label, hyperspectral cube, spectra, and name information.
-
-def extract_spectra(filepath_1, filepath_2, txtfile_path):
-    alllabel = []
-    allhsi = []
-    allnames = []
-    hsi_list = []
-    label_list = []
-    spectral_list = []
-    name_list = []
-    empty_array = np.zeros((500, 500, 300))
-    img = envi.open(filepath_1, filepath_2)
-    img_shape = (img.shape[0], img.shape[1])
-    print(img_shape)
-    data = text_dataframe(txtfile_path, img_shape)
-    for i in range(data.shape[0]):
-        label = data['response'][i]
-        print(label)
-        spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
-        for x in range(spectral_file.shape[0]):
-            for y in range(spectral_file.shape[1]):
-                allhsi.append(spectral_file[x,y,:])
-                alllabel.append(label)
-                allnames.append(data['id'][i])
-        spectrum = np.mean(spectral_file, axis=0)
-        spectrum = np.mean(spectrum, axis=0)
-        empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
-        label_list.append(int(label))
-        hsi_list.append(empty_array)
-        spectral_list.append(spectrum)
-        name_list.append(data['id'][i])
-    return(label_list, hsi_list, spectral_list, name_list, allhsi, alllabel, allnames)
-
-
-# This function appears to extract RGB images from a given path and text file, saving cropped images.
-def extract_rgbimg(img_path, txt_path):
-    img = cv2.imread(img_path)
-    img_shape = img.shape
-    data = text_dataframe(txt_path, img_shape)
-    for i in range(data.shape[0]):
-        crop_img_rgb = img[data['y0'][i]:data['y1'][i], data['x0'][i]:data['x1'][i]]
-        cv2.imwrite(output_path + '_' + str(i) + '_class_' + str(data['class'][i]) + '.jpg', crop_img_rgb)
-        print(crop_img_rgb.shape)
-
-
-# This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
-def text_dataframe(file_path, img_shape):
-    classes = np.genfromtxt('N:/03 NUE JohnDeere Project 2023-24/Codes/jdtrial_data/classes.txt', delimiter=' ')
-    d = pd.read_csv(file_path, sep=' ',names=['class','x','y','width','height','x0','x1','y0','y1','id', 'class_name']).fillna('NaN')
-    d['class_name'] = classes[d['class']].astype(int)
-    d['x0'] = np.round(img_shape[1]*(d['x']-(d['width']/2))).astype(int)
-    d['x1'] = np.round(img_shape[1]*(d['x']+(d['width']/2))).astype(int)
-    d['y0'] = np.round(img_shape[0]*(d['y']-(d['height']/2))).astype(int)
-    d['y1'] = np.round(img_shape[0]*(d['y']+(d['height']/2))).astype(int)
-    string = file_path.split("/")[-1]
-    id = string.split('.')[0]
-    id = id.split('_')[-1]
-    id = id.split('_')[-1]
-    for index in range(d.shape[0]):
-        d['id'] = id
-    d2 = pd.read_csv('N:/03 NUE JohnDeere Project 2023-24/Codes/jdtrial_data/input.csv', names=['class_name', 'response']).fillna('NaN')
-    d1 = pd.merge(d, d2, on='class_name', how='inner')
-    print(d1)
-    d1.to_csv(output_path+'dataframe.csv', index = False)
-    return(d1)
-
-
+#%% Machine learning model
 # The main code seems to use the above functions to process hyperspectral images, 
 # extract features, and apply PLS regression for different numbers of components. Results are then saved to a CSV file.
 
-image_path = r'N:/03 NUE JohnDeere Project 2023-24/Codes/jdtrial_data/images/'
-output_path = r'N:/03 NUE JohnDeere Project 2023-24/Codes/jdtrial_data/output2/'
-labels, hypercubes, spectra, names, allhsis, alllabelss, allnames = path_creator(image_path)
+disk='D:'
+file_import =disk+ r"\2_HSI_Root_Rot\Data_Drone\Output\dataframe_final.csv"
+# Read the CSVs
+dataframe = pd.read_csv(file_import )
 
-labels = np.array(alllabelss)
-hsi = np.array(hypercubes)
-spectra = np.array(allhsis)
-names = np.array(names)
-allnames = np.array(allnames)
-
-X = spectra
-Y = labels
-Z = allnames
+X = dataframe.iloc[1:, 2:-1].to_numpy()
+Y = dataframe.iloc[1:, -1].to_numpy()
+Z = dataframe.iloc[1:, 0].to_numpy()
 
 print(X.shape)
 print(Y.shape)
+print(Z.shape)
 
-'''
-rus = RandomUnderSampler(random_state=0)
-X_resampled, Y_resampled = rus.fit_resample(X, Y)
 
-print(X_resampled.shape)
-print(Y_resampled.shape)
-'''
 n_train_r2_mean = []
 n_test_r2_mean = []
 n_train_r2_std = []    
 n_test_r2_std = []
 n_list = []
 
-for n in range (1, 5, 1):
+for n in range (1, 30, 1):
     #PLS model specs
     plsmodel = PLSRegression(n_components = n, max_iter=1000)
     
@@ -487,4 +390,89 @@ for n in range (1, 5, 1):
     
     
 df = pd.DataFrame(list(zip(n_list, n_train_r2_mean, n_train_r2_std, n_test_r2_mean, n_test_r2_std)), columns =['Number of Components','Train Mean', 'Train STD', 'Test Mean', 'Train STD'])
-df.to_csv('N:/03 NUE JohnDeere Project 2023-24/Codes/jdtrial_data/output2/Results.csv', index=False)
+df.to_csv(output_path+'\Statistic.csv', index = False)
+
+#%% Scattering plot
+# tracking across n
+n_train_r2_mean, n_test_r2_mean, n_train_r2_std, n_test_r2_std, n_list = [], [], [], [], []
+
+best = {
+    "r2": -np.inf,
+    "n": None,
+    "Y_test": None,
+    "Y_pred": None
+}
+
+for n in range(1, 30):
+    plsmodel = PLSRegression(n_components=n, max_iter=1000)
+
+    trainscores_list = []
+    testscores_list  = []
+
+    for i in range(2):
+        # use a fixed seed for reproducibility if you like
+        X_train, X_test, Y_train, Y_test = train_test_split(
+            X, Y, test_size=0.2, shuffle=True, random_state=42+i
+        )
+        trainscores = cross_val_score(plsmodel, X_train, Y_train, cv=5, scoring='r2')
+        pls = plsmodel.fit(X_train, Y_train)
+        Y_pred = pls.predict(X_test).ravel()
+
+        test_r2 = r2_score(Y_test, Y_pred)
+        trainscores_list.append(trainscores)
+        testscores_list.append(test_r2)
+
+        # keep best run overall for plotting later
+        if test_r2 > best["r2"]:
+            best.update({
+                "r2": test_r2,
+                "n": n,
+                "Y_test": Y_test.copy(),
+                "Y_pred": Y_pred.copy()
+            })
+
+    print("Number of components :", n)
+    print("Training Stats")
+    print("R2 mean: ", np.mean(trainscores_list)*100)
+    print("R2 std:  ", np.std(trainscores_list)*100)
+    print("Test Stats")
+    print("R2 mean: ", np.mean(testscores_list)*100)
+    print("R2 std:  ", np.std(testscores_list)*100)
+
+    n_train_r2_mean.append(np.mean(trainscores_list)*100)
+    n_test_r2_mean.append(np.mean(testscores_list)*100)
+    n_train_r2_std.append(np.std(trainscores_list)*100)
+    n_test_r2_std.append(np.std(testscores_list)*100)
+    n_list.append(n)
+
+# ---- Scatter plot for the best model/run ----
+y_true = best["Y_test"]
+y_pred = best["Y_pred"]
+
+# Metrics
+rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+mae  = mean_absolute_error(y_true, y_pred)
+r2   = best["r2"]
+
+plt.figure(figsize=(6.5, 6.5))
+plt.scatter(y_true, y_pred, s=18, alpha=0.7, edgecolor='none')
+
+# 1:1 line
+lo = float(min(np.min(y_true), np.min(y_pred)))
+hi = float(max(np.max(y_true), np.max(y_pred)))
+plt.plot([lo, hi], [lo, hi], linestyle='--', linewidth=1)
+
+plt.xlabel("Measured Y")
+plt.ylabel("Estimated Y")
+plt.title(f"PLS Measured vs Estimated (n={best['n']})\nR²={r2:.3f}, RMSE={rmse:.3f}, MAE={mae:.3f}")
+plt.axis('equal')
+# plt.xlim(lo, hi)
+# plt.ylim(lo, hi)
+plt.xlim(0, 7)
+plt.ylim(0, 7)
+plt.tight_layout()
+
+# Optional: save figure (set your own path)
+# plt.savefig(r"D:\2_HSI_Root_Rot\Data_Drone\Output\pls_measured_vs_estimated.png", dpi=200)
+
+plt.show()

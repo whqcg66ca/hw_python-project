@@ -1,0 +1,159 @@
+import numpy as np
+import pandas as pd
+import glob
+from spectral import *
+import spectral.io.envi as envi
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import confusion_matrix, accuracy_score
+import matplotlib.pyplot as plt
+from sklearn import svm
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis, LinearDiscriminantAnalysis
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.cross_decomposition import PLSRegression
+from sklearn.metrics import r2_score, mean_squared_error,  mean_absolute_error
+
+
+#%% Machine learning model
+# The main code seems to use the above functions to process hyperspectral images, 
+# extract features, and apply PLS regression for different numbers of components. Results are then saved to a CSV file.
+
+disk='D:'
+output_path = disk + r"\2_HSI_Root_Rot\Data_Drone\Output"
+file_import =disk+ r"\2_HSI_Root_Rot\Data_Drone\Output\dataframe_final.csv"
+# Read the CSVs
+dataframe = pd.read_csv(file_import )
+
+X = dataframe.iloc[1:, 2:-1].to_numpy()
+Y = dataframe.iloc[1:, -1].to_numpy()
+Z = dataframe.iloc[1:, 0].to_numpy()
+
+print(X.shape)
+print(Y.shape)
+print(Z.shape)
+
+
+n_train_r2_mean = []
+n_test_r2_mean = []
+n_train_r2_std = []    
+n_test_r2_std = []
+n_list = []
+
+for n in range (1, 30, 1):
+    #PLS model specs
+    plsmodel = PLSRegression(n_components = n, max_iter=1000)
+    
+    trainscores_list = []
+    testscores_list = []
+    
+    #K-Fold cross validation
+    for i in range(2):
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, shuffle=True)
+        trainscores = cross_val_score(plsmodel, X_train, Y_train, cv=5, scoring='r2')
+        pls = plsmodel.fit(X_train, Y_train)
+        Y_pred = pls.predict(X_test)
+        testscores = r2_score(Y_test, np.reshape(Y_pred, (len(Y_pred))))
+        trainscores_list.append(trainscores)
+        testscores_list.append(testscores)
+        
+    print("Number of components : " + str(n))
+    print("Training Stats")
+    print("R2 mean: "+str(np.mean(trainscores_list)*100))
+    print("R2 std: "+str(np.std(trainscores_list)*100))
+    print("Test Stats")
+    print("R2 mean: "+str(np.mean(testscores_list)*100))
+    print("R2 std: "+str(np.std(testscores_list)*100))
+    n_train_r2_mean.append(np.mean(trainscores_list)*100)
+    n_test_r2_mean.append(np.mean(testscores_list)*100)
+    n_train_r2_std.append(np.std(trainscores_list)*100)    
+    n_test_r2_std.append(np.std(testscores_list)*100)
+    n_list.append(n)
+    
+    
+df = pd.DataFrame(list(zip(n_list, n_train_r2_mean, n_train_r2_std, n_test_r2_mean, n_test_r2_std)), columns =['Number of Components','Train Mean', 'Train STD', 'Test Mean', 'Train STD'])
+df.to_csv(output_path+r'\Statistic.csv', index = False)
+
+#%% Scattering plot
+# tracking across n
+n_train_r2_mean, n_test_r2_mean, n_train_r2_std, n_test_r2_std, n_list = [], [], [], [], []
+
+best = {
+    "r2": -np.inf,
+    "n": None,
+    "Y_test": None,
+    "Y_pred": None
+}
+
+for n in range(1, 30):
+    plsmodel = PLSRegression(n_components=n, max_iter=1000)
+
+    trainscores_list = []
+    testscores_list  = []
+
+    for i in range(2):
+        # use a fixed seed for reproducibility if you like
+        X_train, X_test, Y_train, Y_test = train_test_split(
+            X, Y, test_size=0.2, shuffle=True, random_state=42+i
+        )
+        trainscores = cross_val_score(plsmodel, X_train, Y_train, cv=5, scoring='r2')
+        pls = plsmodel.fit(X_train, Y_train)
+        Y_pred = pls.predict(X_test).ravel()
+
+        test_r2 = r2_score(Y_test, Y_pred)
+        trainscores_list.append(trainscores)
+        testscores_list.append(test_r2)
+
+        # keep best run overall for plotting later
+        if test_r2 > best["r2"]:
+            best.update({
+                "r2": test_r2,
+                "n": n,
+                "Y_test": Y_test.copy(),
+                "Y_pred": Y_pred.copy()
+            })
+
+    print("Number of components :", n)
+    print("Training Stats")
+    print("R2 mean: ", np.mean(trainscores_list)*100)
+    print("R2 std:  ", np.std(trainscores_list)*100)
+    print("Test Stats")
+    print("R2 mean: ", np.mean(testscores_list)*100)
+    print("R2 std:  ", np.std(testscores_list)*100)
+
+    n_train_r2_mean.append(np.mean(trainscores_list)*100)
+    n_test_r2_mean.append(np.mean(testscores_list)*100)
+    n_train_r2_std.append(np.std(trainscores_list)*100)
+    n_test_r2_std.append(np.std(testscores_list)*100)
+    n_list.append(n)
+
+# ---- Scatter plot for the best model/run ----
+y_true = best["Y_test"]
+y_pred = best["Y_pred"]
+
+# Metrics
+rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+mae  = mean_absolute_error(y_true, y_pred)
+r2   = best["r2"]
+
+plt.figure(figsize=(6.5, 6.5))
+plt.scatter(y_true, y_pred, s=18, alpha=0.7, edgecolor='none')
+
+# 1:1 line
+lo = float(min(np.min(y_true), np.min(y_pred)))
+hi = float(max(np.max(y_true), np.max(y_pred)))
+plt.plot([lo, hi], [lo, hi], linestyle='--', linewidth=1)
+
+plt.xlabel("Measured Y")
+plt.ylabel("Estimated Y")
+plt.title(f"PLS Measured vs Estimated (n={best['n']})\nR²={r2:.3f}, RMSE={rmse:.3f}, MAE={mae:.3f}")
+plt.axis('equal')
+# plt.xlim(lo, hi)
+# plt.ylim(lo, hi)
+plt.xlim(0, 7)
+plt.ylim(0, 7)
+plt.tight_layout()
+
+# Optional: save figure (set your own path)
+# plt.savefig(r"D:\2_HSI_Root_Rot\Data_Drone\Output\pls_measured_vs_estimated.png", dpi=200)
+
+plt.show()
