@@ -19,7 +19,7 @@ from sklearn.metrics import r2_score
 #from pygal.style import Style
 #from imblearn.under_sampling import RandomUnderSampler
 
-disk='G:'
+disk='D:'
 
 #%% Read HSI path1
 filepath_1=disk+r'\2_HSI_Root_Rot\Data_Drone\HSI_20240704_PeaRootRot (FRR)\PeasRootRotHSI2024_Pika_L_1-radiance-CorrectFromFlatReference.bip.hdr'
@@ -74,9 +74,9 @@ plt.show()
 #%% Extract the polt average for path 1
 
 # This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
-classes = np.genfromtxt(r'G:\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path1\classes.txt', delimiter=' ')
-lbpath=r'G:\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path1\labels\146bbdb2-PeasRootRotHSI2024_Pika_L_New_1.txt'
-output_path=r'G:\2_HSI_Root_Rot\Data_Drone\Output'
+classes = np.genfromtxt(disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path1\classes.txt', delimiter=' ')
+lbpath=disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2024\Path1\labels\146bbdb2-PeasRootRotHSI2024_Pika_L_New_1.txt'
+output_path=disk+r'\2_HSI_Root_Rot\Data_Drone\Output'
 
 d = pd.read_csv(lbpath, sep=' ',names=['class','x','y','width','height','x0','x1','y0','y1','id', 'class_name']).fillna('NaN')
 
