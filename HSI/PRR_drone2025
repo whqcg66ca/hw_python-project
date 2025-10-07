@@ -18,6 +18,7 @@ from sklearn.metrics import r2_score, mean_squared_error,  mean_absolute_error
 #import seaborn as sns
 #from pygal.style import Style
 #from imblearn.under_sampling import RandomUnderSampler
+# Use band195 and band135 to mask out the soil
 
 disk='G:'
 
