@@ -72,6 +72,53 @@ plt.title(f"Band {band_idx+1}")
 plt.axis('off')
 plt.show()
 
+#%% Apply OSAVI mask and show RGB composite of masked data
+img = img.load().astype(np.float32)
+OSAVI = ((img[:, :, 195] - img[:, :, 135]) /
+         (img[:, :, 195] + img[:, :, 135] + 0.16 + 1e-9)) * 1.16
+mask2d = (OSAVI > 0.4) & (OSAVI < 0.9)
+print("mask fraction:", np.mean(mask2d))  # how many pixels survive?
+img_msk = img.copy()
+img_msk[~mask2d] = np.nan
+
+nan_fraction = np.isnan(img_msk).sum() / img_msk.size
+print(f"NaN pixel fraction: {nan_fraction:.4f}  ({nan_fraction*100:.2f}%)")
+
+# Lazy slices; load only when needed
+R = img_msk[:,:,135]
+G = img_msk[:,:,100]
+B = img_msk[:,:,50]
+# Stack to (H, W, 3)
+RGB = np.dstack([R, G, B])
+
+# Report NaN percentage
+nan_fraction = np.isnan(RGB).sum() / RGB.size
+print(f"NaN pixel fraction: {nan_fraction:.4f} ({nan_fraction*100:.2f}%)")
+
+# --- Normalize each channel robustly (ignore NaNs) ---
+eps = 1e-9
+RGB_norm = np.empty_like(RGB)
+for i in range(3):
+    ch = RGB[:, :, i]
+    if np.all(~np.isfinite(ch)):
+        RGB_norm[:, :, i] = 0.0
+        continue
+    lo = np.nanpercentile(ch, 2)     # lower contrast limit
+    hi = np.nanpercentile(ch, 98)    # upper contrast limit
+    if not np.isfinite(hi - lo) or np.isclose(hi, lo):
+        lo, hi = np.nanmin(ch), np.nanmax(ch)
+    RGB_norm[:, :, i] = np.clip((ch - lo) / (hi - lo + eps), 0, 1)
+
+# Optional: fill NaN areas with neutral gray for visibility
+valid = np.isfinite(RGB_norm).all(axis=2)
+RGB_norm[~valid] = 0.2
+
+# --- Display ---
+plt.figure(figsize=(300, 300))
+plt.imshow(RGB_norm)
+plt.title("Normalized RGB Composite (Bands 135-100-50)")
+plt.axis('off')
+plt.show()
 #%% Step 2: Extract the polt average for path 1
 
 # This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
@@ -97,7 +144,6 @@ for index in range(d.shape[0]):
 d_path1=d
 
 
-
 #def extract_spectra(filepath_1, filepath_2, txtfile_path):
 #alllabel = []
 #label_list = []
@@ -114,19 +160,20 @@ empty_array = np.zeros((500, 500, 300))
 data = d_path1
 
 
+
 for i in range(data.shape[0]):
     #label = data['response'][i]
     print(i)
     spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
-
+  
     for x in range(spectral_file.shape[0]):
         for y in range(spectral_file.shape[1]):
             allhsi.append(spectral_file[x,y,:])
             #alllabel.append(label)
             allnames.append(data['id'][i])
     
-    spectrum = np.mean(spectral_file, axis=0)
-    spectrum = np.mean(spectrum, axis=0)
+    spectrum = np.nanmean(spectral_file, axis=0)
+    spectrum = np.nanmean(spectrum, axis=0)
     empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
     
     #label_list.append(int(label))
