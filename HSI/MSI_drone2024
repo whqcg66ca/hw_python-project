@@ -23,7 +23,7 @@ from osgeo import gdal
 disk='G:'
 
 #%% Step 1: Read MSI imagery 
-filepath_1 = disk + r'\2_HSI_Root_Rot\Data_Drone\AltumPT_20250625_PeaRootRot (FRR)\AltumPT_20250625_Pea.tif'
+filepath_1 = disk + r'\2_HSI_Root_Rot\Data_Drone\AltumPT_20240704_PeaRootRot (FRR)\AltumPT_20240704_Pea.tif'
 
 # --- Open dataset ---
 ds = gdal.Open(filepath_1)
@@ -117,7 +117,7 @@ OSAVI = (1.16 * (img[:, :, NIR_BAND-1] - img[:, :, RED_BAND-1]) /
          (img[:, :, NIR_BAND-1] + img[:, :, RED_BAND-1] + 0.16 + 1e-9))
 
 # --- Mask based on OSAVI range ---
-mask2d = (OSAVI > 0.31968172) & (OSAVI < 1.16007054)
+mask2d = (OSAVI > 0.32297996) & (OSAVI < 1.16007769)
 print("Mask fraction (kept):", np.mean(mask2d))
 
 # --- Apply mask ---
@@ -145,9 +145,9 @@ img=img_msk
 #%% Step 3: Extract the polt average for path 1
 
 # This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
-classes = np.genfromtxt(disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\Altum_2025\classes.txt', delimiter=' ')
-lbpath=disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\Altum_2025\labels\7dcd89d0-AltumPT_20250625_Pea.txt'
-output_path=disk+r'\2_HSI_Root_Rot\Data_Drone\Output2025\MSI'
+classes = np.genfromtxt(disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\Altum_2024\classes.txt', delimiter=' ')
+lbpath=disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\Altum_2024\labels\184a46e0-AltumPT_20240704_Pea.txt'
+output_path=disk+r'\2_HSI_Root_Rot\Data_Drone\Output2024\MSI'
 
 d = pd.read_csv(lbpath, sep=' ',names=['class','x','y','width','height','x0','x1','y0','y1','id', 'class_name']).fillna('NaN')
 
@@ -222,7 +222,7 @@ df.to_csv(output_path + r'\MSIspectral_avg1.csv', index=False)
 #%% Step5: Combine path1 and path2
 
 # Replace with your actual file paths
-file1 =disk+ r"\2_HSI_Root_Rot\Data_Drone\Output2025\MSI\MSIspectral_avg1.csv"
+file1 =disk+ r"\2_HSI_Root_Rot\Data_Drone\Output2024\MSI\MSIspectral_avg1.csv"
 
 # Read the CSVs
 df1 = pd.read_csv(file1)
@@ -243,7 +243,7 @@ print("Combined shape:", d_combine.shape)
 d_combine.to_csv(output_path + r'\spectral_avg_com.csv', index=False)
 
 
-d2 = pd.read_csv(disk+r'\2_HSI_Root_Rot\Data_Drone\Rating_Protocol\2025 disease nursery ratings and map_used2.csv',  header=0, names=['class_name', 'response']).fillna('NaN')
+d2 = pd.read_csv(disk+r'\2_HSI_Root_Rot\Data_Drone\Rating_Protocol\2024 disease nursery map and disease ratings_CV_used2.csv',  header=0, names=['class_name', 'response']).fillna('NaN')
 d1 = pd.merge(d_combine, d2, on='class_name', how='inner')
 print(d1)
 
