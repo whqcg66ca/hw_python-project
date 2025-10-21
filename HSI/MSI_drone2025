@@ -1,0 +1,562 @@
+import numpy as np
+import pandas as pd
+import glob
+from spectral import *
+import spectral.io.envi as envi
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import confusion_matrix, accuracy_score
+import matplotlib.pyplot as plt
+from sklearn import svm
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis, LinearDiscriminantAnalysis
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.cross_decomposition import PLSRegression
+from sklearn.metrics import r2_score, mean_squared_error,  mean_absolute_error
+from osgeo import gdal
+#import cv2
+#import pygal
+#import seaborn as sns
+#from pygal.style import Style
+#from imblearn.under_sampling import RandomUnderSampler
+# Use band195 and band135 to mask out the soil
+
+disk='G:'
+
+#%% Step 1: Read MSI imagery 
+filepath_1=disk+r'\2_HSI_Root_Rot\Data_Drone\AltumPT_20250625_PeaRootRot (FRR)\AltumPT_20250625_Pea.tif'
+
+# --- Open dataset ---
+ds = gdal.Open(filepath_1)
+if ds is None:
+    raise FileNotFoundError(f'Cannot open: {filepath_1}')
+
+rows, cols = ds.RasterYSize, ds.RasterXSize
+bands = ds.RasterCount
+print(f'Size: {rows} x {cols} x {bands}')
+
+# --- Read RGB bands (known order: R=4, G=3, B=2) ---
+R = ds.GetRasterBand(4).ReadAsArray().astype(np.float32)
+G = ds.GetRasterBand(3).ReadAsArray().astype(np.float32)
+B = ds.GetRasterBand(2).ReadAsArray().astype(np.float32)
+
+
+# Simple percentile stretch for display
+def stretch_2_98(x):
+    lo, hi = np.percentile(x, [2, 98])
+    x = np.clip((x - lo) / (hi - lo + 1e-6), 0, 1)
+    return x
+
+RGB = np.dstack([stretch_2_98(R), stretch_2_98(G), stretch_2_98(B)])
+plt.figure(figsize=(8,8))
+plt.imshow(RGB)
+plt.title('RGB composite (R=4, G=3, B=2)')
+plt.axis('off')
+plt.show()
+
+#%% Step 2: Apply OSAVI mask and show RGB composite of masked data
+
+img = np.zeros((rows, cols, bands), dtype=np.float32)
+for i in range(bands):
+    img[:, :, i] = ds.GetRasterBand(i + 1).ReadAsArray().astype(np.float32)
+    
+
+OSAVI = ((img[:, :, 195] - img[:, :, 135]) /
+         (img[:, :, 195] + img[:, :, 135] + 0.16 + 1e-9)) * 1.16
+mask2d = (OSAVI > 0.21973070) & (OSAVI <  0.71382451)
+print("mask fraction:", np.mean(mask2d))  # how many pixels survive?
+img_msk = img.copy()
+img_msk[~mask2d] = np.nan
+
+nan_fraction = np.isnan(img_msk).sum() / img_msk.size
+print(f"NaN pixel fraction: {nan_fraction:.4f}  ({nan_fraction*100:.2f}%)")
+
+# Lazy slices; load only when needed
+R = img_msk[:,:,135]
+G = img_msk[:,:,100]
+B = img_msk[:,:,50]
+# Stack to (H, W, 3)
+RGB = np.dstack([R, G, B])
+
+# Report NaN percentage
+nan_fraction = np.isnan(RGB).sum() / RGB.size
+print(f"NaN pixel fraction: {nan_fraction:.4f} ({nan_fraction*100:.2f}%)")
+
+# --- Normalize each channel robustly (ignore NaNs) ---
+eps = 1e-9
+RGB_norm = np.empty_like(RGB)
+for i in range(3):
+    ch = RGB[:, :, i]
+    if np.all(~np.isfinite(ch)):
+        RGB_norm[:, :, i] = 0.0
+        continue
+    lo = np.nanpercentile(ch, 2)     # lower contrast limit
+    hi = np.nanpercentile(ch, 98)    # upper contrast limit
+    if not np.isfinite(hi - lo) or np.isclose(hi, lo):
+        lo, hi = np.nanmin(ch), np.nanmax(ch)
+    RGB_norm[:, :, i] = np.clip((ch - lo) / (hi - lo + eps), 0, 1)
+
+# Optional: fill NaN areas with neutral gray for visibility
+valid = np.isfinite(RGB_norm).all(axis=2)
+RGB_norm[~valid] = 0.2
+
+# --- Display ---
+plt.figure(figsize=(300, 300))
+plt.imshow(RGB_norm)
+plt.title("Normalized RGB Composite (Bands 135-100-50)")
+plt.axis('off')
+plt.show()
+
+img=img_msk
+#%% Step 3: Extract the polt average for path 1
+
+# This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
+classes = np.genfromtxt(disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2025\Path1\classes.txt', delimiter=' ')
+lbpath=disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2025\Path1\labels\PeasRootRot2025_Pika_L_3-radiance-CorrectFromFlatReference_1.txt'
+output_path=disk+r'\2_HSI_Root_Rot\Data_Drone\Output2025'
+
+d = pd.read_csv(lbpath, sep=' ',names=['class','x','y','width','height','x0','x1','y0','y1','id', 'class_name']).fillna('NaN')
+
+d['class_name'] = classes[d['class']].astype(int)
+d['x0'] = np.round(img_shape[1]*(d['x']-(d['width']/2))).astype(int)
+d['x1'] = np.round(img_shape[1]*(d['x']+(d['width']/2))).astype(int)
+d['y0'] = np.round(img_shape[0]*(d['y']-(d['height']/2))).astype(int)
+d['y1'] = np.round(img_shape[0]*(d['y']+(d['height']/2))).astype(int)
+
+string = lbpath.split("\\")[-1]
+id = string.split('.')[0]
+id = id.split('_')[-1]
+id = id.split('_')[-1]
+for index in range(d.shape[0]):
+    d['id'] = id
+
+d_path1=d
+
+
+#def extract_spectra(filepath_1, filepath_2, txtfile_path):
+#alllabel = []
+#label_list = []
+allhsi = []
+allnames = []
+hsi_list = []
+spectral_list = []
+name_list = []
+
+empty_array = np.zeros((500, 500, 300))
+#img = envi.open(filepath_1, filepath_2)
+#img_shape = (img.shape[0], img.shape[1])
+#print(img_shape)
+data = d_path1
+
+for i in range(data.shape[0]):
+    #label = data['response'][i]
+    print(i)
+    spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
+  
+    for x in range(spectral_file.shape[0]):
+        for y in range(spectral_file.shape[1]):
+            allhsi.append(spectral_file[x,y,:])
+            #alllabel.append(label)
+            allnames.append(data['id'][i])
+    
+    spectrum = np.nanmean(spectral_file, axis=0)
+    spectrum = np.nanmean(spectrum, axis=0)
+    empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
+    
+    #label_list.append(int(label))
+    hsi_list.append(empty_array)
+    spectral_list.append(spectrum)
+    name_list.append(data['id'][i])
+    #return(label_list, hsi_list, spectral_list, name_list, allhsi, alllabel, allnames)
+    
+#df = pd.DataFrame(spectral_list,columns=wavelengths)
+#df.insert(0, 'class_name', data['class_name'])   # add as first column
+#df.to_csv(output_path+r'\spectral_avg11.csv', index=False)
+  
+
+  # --- Build DataFrame and put class_name first ---
+df = pd.DataFrame(spectral_list, columns=wavelengths)
+# Align class_name rows with spectra we kept
+df.insert(0, 'class_name', d.loc[:len(df)-1, 'class_name'].to_list())
+df.insert(1, 'id', name_list)
+
+# Save
+df.to_csv(output_path + r'\spectral_avg1.csv', index=False)
+
+#%% Step 4: Read HSI path2
+disk='G:'
+filepath_1=disk+r'\2_HSI_Root_Rot\Data_Drone\Pea_RootRot_20250626_r\PeasRootRot2025-2nd Pass\PeasRootRot2025_Pika_L_3-radiance-CorrectFromFlatReference.bip.hdr'
+filepath_2=disk+r'\2_HSI_Root_Rot\Data_Drone\Pea_RootRot_20250626_r\PeasRootRot2025-2nd Pass\PeasRootRot2025_Pika_L_3-radiance-CorrectFromFlatReference.bip'
+
+# 1) Open ENVI image (memory-mapped; no full load)
+img = envi.open(filepath_1, filepath_2)
+img_shape = (img.shape[0], img.shape[1], img.shape[2])
+print(img_shape)
+
+# 2) Get wavelengths if present
+wavelengths = np.array([float(w) for w in img.metadata.get('wavelength', [])])  
+
+# Helper: find band closest to a wavelength (nm)
+def band_at(wl_nm):
+    idx = (np.abs(wavelengths - wl_nm)).argmin()
+    return int(idx)
+
+# 3) Choose RGB bands (approx true color)
+r_idx = band_at(650)   # Red ~ 650 nm
+g_idx = band_at(560)   # Green ~ 560 nm
+b_idx = band_at(470)   # Blue ~ 470 nm
+
+# Lazy slices; load only when needed
+R = img[:,:,r_idx].astype(np.float32)
+G = img[:,:,g_idx].astype(np.float32)
+B = img[:,:,b_idx].astype(np.float32)
+
+# 4) Simple percentile stretch for display
+def stretch_2_98(x):
+    lo, hi = np.percentile(x, [2, 98])
+    x = np.clip((x - lo) / (hi - lo + 1e-6), 0, 1)
+    return x
+
+RGB = np.dstack([stretch_2_98(R), stretch_2_98(G), stretch_2_98(B)])
+
+plt.figure(figsize=(8,8))
+plt.imshow(RGB)
+plt.title("ENVI RGB composite")
+plt.axis('off')
+plt.show()
+
+# 5) Show a single band (e.g., band 100)
+band_idx = 99  # zero-based
+band = img[:,:,band_idx].astype(np.float32)
+plt.figure(figsize=(7,6))
+plt.imshow(stretch_2_98(band), cmap='gray')
+plt.title(f"Band {band_idx+1}")
+plt.axis('off')
+plt.show()
+
+
+#%% Step 5: Apply OSAVI mask and show RGB composite of masked data
+img = img.load().astype(np.float32)
+OSAVI = ((img[:, :, 195] - img[:, :, 135]) /
+         (img[:, :, 195] + img[:, :, 135] + 0.16 + 1e-9)) * 1.16
+mask2d = (OSAVI > 0.21973070) & (OSAVI <  0.71382451)
+print("mask fraction:", np.mean(mask2d))  # how many pixels survive?
+img_msk = img.copy()
+img_msk[~mask2d] = np.nan
+
+nan_fraction = np.isnan(img_msk).sum() / img_msk.size
+print(f"NaN pixel fraction: {nan_fraction:.4f}  ({nan_fraction*100:.2f}%)")
+
+# Lazy slices; load only when needed
+R = img_msk[:,:,135]
+G = img_msk[:,:,100]
+B = img_msk[:,:,50]
+# Stack to (H, W, 3)
+RGB = np.dstack([R, G, B])
+
+# Report NaN percentage
+nan_fraction = np.isnan(RGB).sum() / RGB.size
+print(f"NaN pixel fraction: {nan_fraction:.4f} ({nan_fraction*100:.2f}%)")
+
+# --- Normalize each channel robustly (ignore NaNs) ---
+eps = 1e-9
+RGB_norm = np.empty_like(RGB)
+for i in range(3):
+    ch = RGB[:, :, i]
+    if np.all(~np.isfinite(ch)):
+        RGB_norm[:, :, i] = 0.0
+        continue
+    lo = np.nanpercentile(ch, 2)     # lower contrast limit
+    hi = np.nanpercentile(ch, 98)    # upper contrast limit
+    if not np.isfinite(hi - lo) or np.isclose(hi, lo):
+        lo, hi = np.nanmin(ch), np.nanmax(ch)
+    RGB_norm[:, :, i] = np.clip((ch - lo) / (hi - lo + eps), 0, 1)
+
+# Optional: fill NaN areas with neutral gray for visibility
+valid = np.isfinite(RGB_norm).all(axis=2)
+RGB_norm[~valid] = 0.2
+
+# --- Display ---
+plt.figure(figsize=(300, 300))
+plt.imshow(RGB_norm)
+plt.title("Normalized RGB Composite (Bands 135-100-50)")
+plt.axis('off')
+plt.show()
+
+img=img_msk
+#%% Step 6: Extract the polt average for path 2
+
+# This function seems to create a dataframe from a given text file and image shape information, merging it with another dataframe.
+classes = np.genfromtxt(disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2025\Path2\classes.txt', delimiter=' ')
+lbpath=disk+r'\2_HSI_Root_Rot\Data_Drone\Label_studio\HSI2025\Path2\labels\a3abd51d-PeasRootRot2025_Pika_L_2-radiance-CorrectFromFlatReference_2.txt'
+output_path=disk+r'\2_HSI_Root_Rot\Data_Drone\Output2025'
+
+d = pd.read_csv(lbpath, sep=' ',names=['class','x','y','width','height','x0','x1','y0','y1','id', 'class_name']).fillna('NaN')
+
+d['class_name'] = classes[d['class']].astype(int)
+d['x0'] = np.round(img_shape[1]*(d['x']-(d['width']/2))).astype(int)
+d['x1'] = np.round(img_shape[1]*(d['x']+(d['width']/2))).astype(int)
+d['y0'] = np.round(img_shape[0]*(d['y']-(d['height']/2))).astype(int)
+d['y1'] = np.round(img_shape[0]*(d['y']+(d['height']/2))).astype(int)
+
+string = lbpath.split("\\")[-1]
+id = string.split('.')[0]
+id = id.split('_')[-1]
+id = id.split('_')[-1]
+for index in range(d.shape[0]):
+    d['id'] = id
+
+d_path2=d
+
+#def extract_spectra(filepath_1, filepath_2, txtfile_path):
+#alllabel = []
+#label_list = []
+allhsi = []
+allnames = []
+hsi_list = []
+spectral_list = []
+name_list = []
+
+empty_array = np.zeros((600, 600, 300))
+#img = envi.open(filepath_1, filepath_2)
+#img_shape = (img.shape[0], img.shape[1])
+#print(img_shape)
+data = d_path2
+
+
+for i in range(data.shape[0]):
+    #label = data['response'][i]
+    print(i)
+    spectral_file =  img[data['y0'][i]:data['y1'][i]:, data['x0'][i]:data['x1'][i]:]
+
+    for x in range(spectral_file.shape[0]):
+        for y in range(spectral_file.shape[1]):
+            allhsi.append(spectral_file[x,y,:])
+            #alllabel.append(label)
+            allnames.append(data['id'][i])
+    
+    spectrum = np.nanmean(spectral_file, axis=0)
+    spectrum = np.nanmean(spectrum, axis=0)
+    empty_array[int((empty_array.shape[0]-spectral_file.shape[0])/2):int((empty_array.shape[0]+spectral_file.shape[0])/2),int((empty_array.shape[1]-spectral_file.shape[1])/2):int((empty_array.shape[1]+spectral_file.shape[1])/2),:] = spectral_file
+    
+    #label_list.append(int(label))
+    hsi_list.append(empty_array)
+    spectral_list.append(spectrum)
+    name_list.append(data['id'][i])
+    #return(label_list, hsi_list, spectral_list, name_list, allhsi, alllabel, allnames)
+    
+#df = pd.DataFrame(spectral_list,columns=wavelengths)
+#df.insert(0, 'class_name', data['class_name'])   # add as first column
+#df.to_csv(output_path+r'\spectral_avg11.csv', index=False)
+  
+
+  # --- Build DataFrame and put class_name first ---
+df2 = pd.DataFrame(spectral_list, columns=wavelengths)
+# Align class_name rows with spectra we kept
+df2.insert(0, 'class_name', d.loc[:len(df2)-1, 'class_name'].to_list())
+df2.insert(1, 'id', name_list)
+
+# Save
+df2.to_csv(output_path + r'\spectral_avg2.csv', index=False)
+
+
+#%% Step5: Combine path1 and path2
+
+# Replace with your actual file paths
+file1 =disk+ r"\2_HSI_Root_Rot\Data_Drone\Output2025\spectral_avg1.csv"
+file2 =disk+ r"\2_HSI_Root_Rot\Data_Drone\Output2025\spectral_avg2.csv"
+
+# Read the CSVs
+df1 = pd.read_csv(file1)
+df2 = pd.read_csv(file2)
+
+# Print summary information
+print("=== File 1 ===")
+print(df1.head(), "\n")
+print("Shape:", df1.shape)
+
+print("\n=== File 2 ===")
+print(df2.head(), "\n")
+print("Shape:", df2.shape)
+
+# Example: merge or concatenate if they share same structure
+d_combine = pd.concat([df1, df2], ignore_index=True)
+print("\n=== Combined ===")
+print(d_combine.head())
+print("Combined shape:", d_combine.shape)
+# Save
+d_combine.to_csv(output_path + r'\spectral_avg_com.csv', index=False)
+
+
+d2 = pd.read_csv(disk+r'\2_HSI_Root_Rot\Data_Drone\Rating_Protocol\2025 disease nursery ratings and map_used2.csv',  header=0, names=['class_name', 'response']).fillna('NaN')
+d1 = pd.merge(d_combine, d2, on='class_name', how='inner')
+print(d1)
+
+d1.to_csv(output_path+'\dataframe_final.csv', index = False)
+
+
+
+# The code includes necessary libraries for numerical operations (numpy), 
+# image processing (cv2), data manipulation (pandas), file handling (glob), 
+# hyperspectral analysis (spectral), machine learning (sklearn), data visualization (seaborn, matplotlib, pygal), and imbalanced data handling (imblearn).
+
+
+
+# custom_style = Style(
+#   background='transparent',
+#   plot_background='transparent',
+#   foreground='black',
+#   foreground_strong='#53A0E8',
+#   foreground_subtle='#630C0D',
+#   opacity='.6',
+#   opacity_hover='.9',
+#     font_family='googlefont:Roboto',
+#     label_font_size = 24,
+#     major_label_font_size = 24,
+#     value_font_size = 24,
+#     legend_font_size = 24,
+#   transition='400ms ease-in',
+#   colors=('#f54242', '#f5b342', '#75f542', '#4842f5', '#c542f5', '#f542bc', '#f54287', '#f54242', '#e9f542'))
+
+
+#%% Machine learning model
+# The main code seems to use the above functions to process hyperspectral images, 
+# extract features, and apply PLS regression for different numbers of components. Results are then saved to a CSV file.
+
+disk='D:'
+file_import =disk+ r"\2_HSI_Root_Rot\Data_Drone\Output\dataframe_final.csv"
+# Read the CSVs
+dataframe = pd.read_csv(file_import )
+
+X = dataframe.iloc[1:, 2:-1].to_numpy()
+Y = dataframe.iloc[1:, -1].to_numpy()
+Z = dataframe.iloc[1:, 0].to_numpy()
+
+print(X.shape)
+print(Y.shape)
+print(Z.shape)
+
+
+n_train_r2_mean = []
+n_test_r2_mean = []
+n_train_r2_std = []    
+n_test_r2_std = []
+n_list = []
+
+for n in range (1, 30, 1):
+    #PLS model specs
+    plsmodel = PLSRegression(n_components = n, max_iter=1000)
+    
+    trainscores_list = []
+    testscores_list = []
+    
+    #K-Fold cross validation
+    for i in range(2):
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, shuffle=True)
+        trainscores = cross_val_score(plsmodel, X_train, Y_train, cv=5, scoring='r2')
+        pls = plsmodel.fit(X_train, Y_train)
+        Y_pred = pls.predict(X_test)
+        testscores = r2_score(Y_test, np.reshape(Y_pred, (len(Y_pred))))
+        trainscores_list.append(trainscores)
+        testscores_list.append(testscores)
+        
+    print("Number of components : " + str(n))
+    print("Training Stats")
+    print("R2 mean: "+str(np.mean(trainscores_list)*100))
+    print("R2 std: "+str(np.std(trainscores_list)*100))
+    print("Test Stats")
+    print("R2 mean: "+str(np.mean(testscores_list)*100))
+    print("R2 std: "+str(np.std(testscores_list)*100))
+    n_train_r2_mean.append(np.mean(trainscores_list)*100)
+    n_test_r2_mean.append(np.mean(testscores_list)*100)
+    n_train_r2_std.append(np.std(trainscores_list)*100)    
+    n_test_r2_std.append(np.std(testscores_list)*100)
+    n_list.append(n)
+    
+    
+df = pd.DataFrame(list(zip(n_list, n_train_r2_mean, n_train_r2_std, n_test_r2_mean, n_test_r2_std)), columns =['Number of Components','Train Mean', 'Train STD', 'Test Mean', 'Train STD'])
+df.to_csv(output_path+'\Statistic.csv', index = False)
+
+#%% Scattering plot
+# tracking across n
+n_train_r2_mean, n_test_r2_mean, n_train_r2_std, n_test_r2_std, n_list = [], [], [], [], []
+
+best = {
+    "r2": -np.inf,
+    "n": None,
+    "Y_test": None,
+    "Y_pred": None
+}
+
+for n in range(1, 30):
+    plsmodel = PLSRegression(n_components=n, max_iter=1000)
+
+    trainscores_list = []
+    testscores_list  = []
+
+    for i in range(2):
+        # use a fixed seed for reproducibility if you like
+        X_train, X_test, Y_train, Y_test = train_test_split(
+            X, Y, test_size=0.2, shuffle=True, random_state=42+i
+        )
+        trainscores = cross_val_score(plsmodel, X_train, Y_train, cv=5, scoring='r2')
+        pls = plsmodel.fit(X_train, Y_train)
+        Y_pred = pls.predict(X_test).ravel()
+
+        test_r2 = r2_score(Y_test, Y_pred)
+        trainscores_list.append(trainscores)
+        testscores_list.append(test_r2)
+
+        # keep best run overall for plotting later
+        if test_r2 > best["r2"]:
+            best.update({
+                "r2": test_r2,
+                "n": n,
+                "Y_test": Y_test.copy(),
+                "Y_pred": Y_pred.copy()
+            })
+
+    print("Number of components :", n)
+    print("Training Stats")
+    print("R2 mean: ", np.mean(trainscores_list)*100)
+    print("R2 std:  ", np.std(trainscores_list)*100)
+    print("Test Stats")
+    print("R2 mean: ", np.mean(testscores_list)*100)
+    print("R2 std:  ", np.std(testscores_list)*100)
+
+    n_train_r2_mean.append(np.mean(trainscores_list)*100)
+    n_test_r2_mean.append(np.mean(testscores_list)*100)
+    n_train_r2_std.append(np.std(trainscores_list)*100)
+    n_test_r2_std.append(np.std(testscores_list)*100)
+    n_list.append(n)
+
+# ---- Scatter plot for the best model/run ----
+y_true = best["Y_test"]
+y_pred = best["Y_pred"]
+
+# Metrics
+rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+mae  = mean_absolute_error(y_true, y_pred)
+r2   = best["r2"]
+
+plt.figure(figsize=(6.5, 6.5))
+plt.scatter(y_true, y_pred, s=18, alpha=0.7, edgecolor='none')
+
+# 1:1 line
+lo = float(min(np.min(y_true), np.min(y_pred)))
+hi = float(max(np.max(y_true), np.max(y_pred)))
+plt.plot([lo, hi], [lo, hi], linestyle='--', linewidth=1)
+
+plt.xlabel("Measured Y")
+plt.ylabel("Estimated Y")
+plt.title(f"PLS Measured vs Estimated (n={best['n']})\nR²={r2:.3f}, RMSE={rmse:.3f}, MAE={mae:.3f}")
+plt.axis('equal')
+# plt.xlim(lo, hi)
+# plt.ylim(lo, hi)
+plt.xlim(0, 7)
+plt.ylim(0, 7)
+plt.tight_layout()
+
+# Optional: save figure (set your own path)
+# plt.savefig(r"D:\2_HSI_Root_Rot\Data_Drone\Output\pls_measured_vs_estimated.png", dpi=200)
+
+plt.show()
