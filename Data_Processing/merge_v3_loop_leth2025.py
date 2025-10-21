@@ -32,10 +32,10 @@ from osgeo import gdal
 import sys
 print(sys.executable)
 
-targ='NUECanola'  
+targ='NUEWheat'  
  # 'leth_mustard', 'leth_oat'
 
-Teget1=glob.glob(r'N:\UAV Data_RSPLab Projects 2025\UAV RedEdge P (MSI)_Processed\Pix4D\RedEdgeP_20250625_NUECanolaAAFC (BL)\Canola20250625\4_index\reflectance', recursive = True)
+Teget1=glob.glob(r'N:\UAV Data_RSPLab Projects 2025\UAV RedEdge P (MSI)_Processed\Pix4D\RedEdgeP_20250624_NUEWheatJD (BL)\RedEdgeP_20250624_NUEWheatJD (BL)\4_index\reflectance', recursive = True)
 #Teget1=glob.glob(r'N:\UAV Data_RSPLab Projects 2025\UAV RedEdge P (MSI)_Processed/' + r'*'+targ+ r'*'+ r'/*/4_index/reflectance', recursive = True)
 #%% Read the bands in a folder
 # file_list= glob.glob(r'C:\Users\Hongquan\Python_test\Test50_June 30\Reflectance30062022\4_index\reflectance\*.tif') 
