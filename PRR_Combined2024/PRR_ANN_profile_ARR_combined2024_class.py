@@ -19,7 +19,7 @@ from sklearn.preprocessing import LabelEncoder
 from xgboost import XGBRegressor
 
 import tensorflow as tf
-from keras import Sequential
+from keras.models import Sequential
 from keras.layers import Dense
 from keras.utils import to_categorical
 import pickle
