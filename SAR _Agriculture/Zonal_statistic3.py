@@ -6,10 +6,11 @@ arcpy.CheckOutExtension("Spatial")
 arcpy.env.overwriteOutput = True
 
 # --- MODIFY THESE PATHS ---
-in_folder   = r"D:\7_Sentinel\North2023\20230503"
-in_polygons = r"D:\2_2019-2023_NewLiskeard_data_organized\Shapfile_merged2023\All_Polygon.shp"
+in_folder   = r"H:\7_Sentinel\North2023\20230807"
+out_folder  = r"H:\7_Sentinel\North2023\20230807\Zonal"
+in_polygons = r"H:\2_2019-2023_NewLiskeard_data_organized\Shapfile_merged2023\All_Polygon.shp"
 zone_field  = "Field"
-out_folder  = r"D:\7_Sentinel\North2023\20230503\Zonal"
+
 # ----------------------------
 
 # Make sure output folder exists
