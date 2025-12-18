@@ -86,7 +86,8 @@ def terrain_correction(product, pixel_spacing=10.0, dem="SRTM 1Sec HGT"):
 
     # ✅ Add these to output extra layers
     params.put("saveDEM", True)                                  # output DEM raster
-    params.put("saveProjectedLocalIncidenceAngle", True)         # output local incidence angle (projected)
+    params.put("saveLocalIncidenceAngle", True)                   # output local incidence angle
+    #params.put("saveProjectedLocalIncidenceAngle", True)         # output local incidence angle (projected)
 
     # (Optional extras you may also like)
     # params.put("saveLocalIncidenceAngle", True)                # non-projected local incidence angle (if supported)
@@ -156,7 +157,7 @@ def main(in_path, out_path, pols="VV,VH", do_merge=True):
 if __name__ == "__main__":
     # Example inputs:
     # in_path  can be .SAFE folder or .zip (SLC zip) or .dim
-    in_path = r"H:\7_Sentinel\South2023_zip\S1A_IW_SLC__1SDV_20230515T230910_20230515T230937_048551_05D700_38F9.zip"
-    out_path = r"H:\7_Sentinel\South2023\test2\S1A_20230515_TC.dim"
+    in_path = r"D:\7_Sentinel\North2023_zip\ZIP\S1A_IW_SLC__1SDV_20230503T230934_20230503T231001_048376_05D190_B660.zip"
+    out_path = r"D:\7_Sentinel\North2023_Re\20230503\S1A_20230515_TC.dim"
 
     main(in_path, out_path, pols="VV,VH", do_merge=True)
