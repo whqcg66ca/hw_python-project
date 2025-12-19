@@ -6,11 +6,11 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, confusion_matrix, cohen_kappa_score
 from sklearn.preprocessing import LabelEncoder
-dis='L:'
+dis='G:'
 
 # %% Step 1.1: Read the Hyperspectral data in Dec 2024
-shoot_hsi = dis+'/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
-root_hsi = dis+'/HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_root_DecG8.xlsx'
+shoot_hsi = dis+'/2_HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_shoot_DecG8.xlsx'
+root_hsi = dis+'/2_HSI_Root_Rot/Data/Specim_ARR_02122024/Spectral_root_DecG8.xlsx'
 
 df_s1 = pd.read_excel(shoot_hsi, sheet_name='ShootR1toR5', header=0).astype(float)
 df_s2 = pd.read_excel(shoot_hsi, sheet_name='ShootR6toR10', header=0).astype(float)
@@ -25,7 +25,7 @@ df_t3 = pd.read_excel(root_hsi, sheet_name='RootR11toR15', header=0).astype(floa
 
 dec_2024_root = np.hstack([df_t1.iloc[:, 1:].values, df_t2.iloc[:, 1:].values, df_t3.iloc[:, 1:].values])
 
-dec_truth = pd.read_excel(dis+'/HSI_Root_Rot/Data/Truth_December2024_v2.xlsx', sheet_name='Feuil1', header=0)
+dec_truth = pd.read_excel(dis+'/2_HSI_Root_Rot/Data/Truth_December2024_v2.xlsx', sheet_name='Feuil1', header=0)
 labe_shoot = dec_truth.iloc[:, -3].values.astype(float)
 labe_root = dec_truth.iloc[:, -2].values.astype(float)
 
@@ -71,8 +71,8 @@ y_form = label_encoder.fit_transform(y)  # Encoding categorical labels
 #%% Step 1.2 Read the Feb 2024 data
 
 # Define file paths
-path_hsi = dis+r'\HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
-path_truth = dis+ r'\HSI_Root_Rot\Data\Truth3.xlsx'
+path_hsi = dis+r'\2_HSI_Root_Rot\Data\HSI Spectra RootRot_MAIN.xlsx'
+path_truth = dis+ r'\2_HSI_Root_Rot\Data\Truth3.xlsx'
 
 # Read shoot hyperspectral data
 ARR_2024_Shoot = pd.read_excel(path_hsi, sheet_name='ARR_2024_Shoot', header=0)
