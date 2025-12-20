@@ -17,6 +17,10 @@ def convert_img_folder_to_tif(in_folder: str, out_folder: str, compress: str = "
     print(f"Found {len(imgs)} .img files")
 
     for fn in imgs:
+        # ✅ SKIP elevation raster
+        if "elevation" in fn.lower():
+             continue
+
         src = os.path.join(in_folder, fn)
         base = os.path.splitext(fn)[0]
         dst = os.path.join(out_folder, base + ".tif")
@@ -59,9 +63,16 @@ def convert_img_folder_to_tif(in_folder: str, out_folder: str, compress: str = "
         else:
             print(f"  ERROR: output not created: {dst}")
 
+
+
 if __name__ == "__main__":
-    in_folder  = r"D:\7_Sentinel\North2023_Re\20230515\S1A_20230515_TC.data"
-    out_folder = r"D:\7_Sentinel\North2023_Re\20230515\Zonal"
+    dd=r"20230620"
+    in_folder = "D:\\7_Sentinel\\North2023_Re\\" + dd + "\\S1A_" + dd + "_TC.data"
+    zonal_folder = os.path.join(r"D:\7_Sentinel\North2023_Re\\" + dd + "\\", "Zonal")
+    if not os.path.isdir(zonal_folder):
+        os.makedirs(zonal_folder)
+    out_folder = zonal_folder
+
     try:
         convert_img_folder_to_tif(in_folder, out_folder)
         print("\nAll conversions finished.")
