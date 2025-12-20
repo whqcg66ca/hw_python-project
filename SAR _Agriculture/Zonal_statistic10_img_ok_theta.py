@@ -87,6 +87,7 @@ for raster_name in rasters:
 
             raster_for_stats = db_raster_path  # use saved dB raster path
 
+
         # ----------------------------------------------------
         # Zonal stats
         # ----------------------------------------------------

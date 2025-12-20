@@ -60,9 +60,8 @@ def convert_img_folder_to_tif(in_folder: str, out_folder: str, compress: str = "
             print(f"  ERROR: output not created: {dst}")
 
 if __name__ == "__main__":
-    in_folder  = r"D:\7_Sentinel\North2023_Re\20230503\S1A_20230503_TC.data"
-    out_folder = r"D:\7_Sentinel\North2023_Re\20230503\TIF"
-
+    in_folder  = r"D:\7_Sentinel\North2023_Re\20230515\S1A_20230515_TC.data"
+    out_folder = r"D:\7_Sentinel\North2023_Re\20230515\Zonal"
     try:
         convert_img_folder_to_tif(in_folder, out_folder)
         print("\nAll conversions finished.")

@@ -7,9 +7,9 @@ arcpy.env.overwriteOutput = True
 arcpy.env.addOutputsToMap = False  # helps avoid Pro UI overhead
 
 # --- MODIFY THESE PATHS ---
-in_folder   = r"H:\7_Sentinel\North2023\20230707"
-out_folder  = r"H:\7_Sentinel\North2023\20230707\Zonal"
-in_polygons = r"H:\2_2019-2023_NewLiskeard_data_organized\Shapfile_merged2023\All_Polygon.shp"
+in_folder   = r"D:\7_Sentinel\North2023\20230707"
+out_folder  = r"D:\7_Sentinel\North2023\20230707\Zonal2"
+in_polygons = r"D:\2_2019-2023_NewLiskeard_data_organized\Shapfile_merged2023\All_Polygon.shp"
 zone_field  = "Field"
 # ----------------------------
 

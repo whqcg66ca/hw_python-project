@@ -7,8 +7,8 @@ arcpy.env.overwriteOutput = True
 arcpy.env.addOutputsToMap = False  # helps avoid Pro UI overhead
 
 # --- MODIFY THESE PATHS ---
-in_folder   = r"D:\7_Sentinel\North2023_Re\20230503\TIF"
-out_folder  = r"D:\7_Sentinel\North2023_Re\20230503\Zonal"
+in_folder   = r"D:\7_Sentinel\North2023_Re\20230515\Zonal"
+out_folder  = r"D:\7_Sentinel\North2023_Re\20230515\Zonal"
 in_polygons = r"D:\2_2019-2023_NewLiskeard_data_organized\Shapfile_merged2023\All_Polygon.shp"
 zone_field  = "Field"
 # ----------------------------
@@ -24,6 +24,10 @@ print(rasters)
 
 for raster_name in rasters:
     print("Processing: " + raster_name)
+    
+    # ✅ SKIP elevation raster
+    if "elevation" in raster_name.lower():
+        continue
 
     in_raster = os.path.join(in_folder, raster_name)
     base = os.path.splitext(raster_name)[0]
@@ -38,9 +42,10 @@ for raster_name in rasters:
         # ----------------------------------------------------
         # CONDITION: If filename contains "Theta" → skip dB conversion
         # ----------------------------------------------------
-        if "LocalIncidenceAngle" in raster_name.lower():
+        if "theta" in raster_name.lower():
             print("  Detected Theta image → using original values, no dB conversion.")
             raster_for_stats = in_raster  # pass path (lowest memory)
+
         else:
             # ----------------------------------------------------
             # Save intermediate rasters to disk to reduce memory
@@ -49,15 +54,33 @@ for raster_name in rasters:
             # ----------------------------------------------------
             print("  Creating intermediates on disk (SetNull, then dB)...")
 
-            null_raster_path = os.path.join(out_folder, base + "_tmp_null.tif")
-            db_raster_path   = os.path.join(out_folder, base + "_tmp_dB.tif")
+            # (Python 2/3 compatible: no f-strings)
+            null_raster_path = os.path.join(out_folder, "{}_tmp_null.tif".format(base))
+            db_raster_path   = os.path.join(out_folder, "{}_tmp_dB.tif".format(base))
 
+            # Build Null mask and save (disk)
             r = Raster(in_raster)
             r_null = SetNull(r <= 0, r)
             r_null.save(null_raster_path)
 
-            r_db = 10 * Log10(Raster(null_raster_path))
+            # Compute dB directly from the in-memory raster object (avoid re-reading temp)
+            r_db = 10 * Log10(r_null)
             r_db.save(db_raster_path)
+
+            # Release locks (important before deleting)
+            del r_db, r_null, r
+            try:
+                arcpy.management.ClearWorkspaceCache()
+            except Exception:
+                pass
+
+            # ✅ Delete the original linear raster AFTER dB exists
+            try:
+                if arcpy.Exists(in_raster):
+                    arcpy.management.Delete(in_raster)
+                    print("  Deleted linear raster: {}".format(in_raster))
+            except Exception as e:
+                print("  WARNING: could not delete linear raster ({}): {}".format(in_raster, e))
 
             raster_for_stats = db_raster_path  # use saved dB raster path
 
