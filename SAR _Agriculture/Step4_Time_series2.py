@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 # =========================
 # USER SETTINGS
 # =========================
-root_folder = r"H:\7_Sentinel\North2023"     # contains date folders like 20230513
+root_folder = r"D:\7_Sentinel\North2023_Re"     # contains date folders like 20230513
 zonal_subfolder_name = "Zonal"              # subfolder under each date folder
-pol_tag = "VH"                              # change to "HV" if your files are HV
+pol_tag = "VV"                              # change to "HV" if your files are HV
 zone_field = "Field"                        # field ID column in your Excel
 stat_col = "MEAN"                           # column holding HV/VH statistic (e.g., MEAN)
 

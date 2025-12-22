@@ -66,7 +66,7 @@ def convert_img_folder_to_tif(in_folder: str, out_folder: str, compress: str = "
 
 
 if __name__ == "__main__":
-    dd=r"20230714"
+    dd=r"20231030"
     in_folder = "D:\\7_Sentinel\\North2023_Re\\" + dd + "\\S1A_" + dd + "_TC.data"
     zonal_folder = os.path.join(r"D:\7_Sentinel\North2023_Re\\" + dd + "\\", "Zonal")
     if not os.path.isdir(zonal_folder):
