@@ -144,8 +144,8 @@ def main_iceye_grd(in_path, out_path, pol="VV", pixel_spacing=2.5, dem="SRTM 1Se
 if __name__ == "__main__":
     # ✅ Set these to your ICEYE GRD input and desired output
     # NOTE: in_path must be something SNAP can read via its ICEYE reader (varies by ICEYE delivery format).
-    in_path  = r"D:\10_ICEYE_Lethbridge_Project\ICEYE\20250817\IX_CS-21035_SAL000119_COLN10_SM_20250817_184846_GRD\ICEYE_X31_GRD_SM_5857262_20250817T184846.xml"
-    out_path = r"D:\10_ICEYE_Lethbridge_Project\ICEYE\20250817\ICEYE_GRD_TC.dim"
+    in_path  = r"D:\10_ICEYE_Lethbridge_Project\ICEYE\20250824\IX_CS-21035_SAL000119_COLN10_SM_5926148_421491_1_GRD\ICEYE_X11_GRD_SM_5926148_20250824T003752.xml"
+    out_path = r"D:\10_ICEYE_Lethbridge_Project\ICEYE\20250824\ICEYE_GRD_TC.dim"
 
     main_iceye_grd(
         in_path=in_path,
